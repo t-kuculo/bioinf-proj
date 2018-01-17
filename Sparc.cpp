@@ -105,7 +105,7 @@ void insert(Node *current, string sequence, string quality){
 		i += g;
         current = current->next(seq);
 	}
-    printf("Inserted: %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
+    printf("Inserted:  %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
 }
 
 
@@ -244,14 +244,17 @@ int main(int argc, char* argv[])
     // go through backbone indices, add new sequence to graph if matched 
     current = graph;
     do{
-        if(!data.mappings.count(current->index)) continue;
-        mappings = data.mappings[current->index];
-        for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
-            sequence = get<0>(*it);
-            quality = get<1>(*it);
-            insert(current, sequence, quality);
+        if(data.mappings.count(current->index)){
+            //printf("At index: %d, %d mappings\n",current->index, data.mappings[current->index].size());
+            mappings = data.mappings[current->index];
+            for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
+                sequence = get<0>(*it);
+                quality = get<1>(*it);
+                insert(current, sequence, quality);
+            }
         }
-        current = current->next(current->edges->front().seq->c_str());
+        current = current->next(current->edges->front().seq->c_str()); //edge to next backbone node is always at head of edge list
+        //printf("Next node: [%d. %s]\n", current->index, current->seq->substr(0,25).c_str());
         
     }while(current->edges->size());
     
