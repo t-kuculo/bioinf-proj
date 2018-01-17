@@ -17,69 +17,74 @@ string clean(string str) {
 	return str;
 }
 
-// read layout file, return sequence object
-string get_backbone(string path) {
-	list<string> lines = read_file(path);
-	return clean(lines.back());
-}
 
-// get list of reads
-map<string, tuple<string, string>> get_reads(string path) {
-	map<string, tuple<string, string>> reads;
-	string name, sequence, quality;
-	list<string> lines = read_file(path);
-	while (!lines.empty())
-	{
-		name = clean(lines.front());
-		name = name.substr(1, name.size()); //ignore first char '@'
-		lines.pop_front();
-		sequence = clean(lines.front());
-		lines.pop_front();
-		lines.pop_front();
-		quality = clean(lines.front());
-		lines.pop_front();
-		reads[name] = make_tuple(sequence, quality);
-	}
-	return reads;
-}
-
-
-// Contains all used data
+/*
+ * This class contains all relevant data read from files.
+ * 
+ * Attributes:
+ *      backbone - string containing backbone sequence
+ *      quality  - confidence of sequence base reads (FASTQ), keys sequence name
+ *      mappings - maps sequences to the index in the backbone where they align
+ * 
+ * Author: Tin Kuculo
+ */ 
 class Data {
 public:
 	string backbone;
-	map<string, string> sequence;
 	map<string, string> quality;
-	map<int, list<Mapping>> index_to_mapping;
-
+	map<int, list<string>> mappings;
+    void prepare_data(string, string, string);
+    
+private:
+    string get_backbone(string);
+    map<string, tuple<string, string>> get_reads(string path);
     map<int, list<string>>get_mappings(string);
-    
-	void prepare_data(string backbone_path, string reads_path, string mappings_path) {
-		this->backbone = get_backbone(backbone_path);
 
-		map<string, tuple<string, string>> reads = get_reads(reads_path);
+public:     
+    void prepare_data(string backbone_path, string reads_path, string mappings_path) {
+        
+        this->backbone = get_backbone(backbone_path);
+        map<string, tuple<string, string>> reads = get_reads(reads_path);
 
-		// get sequences and qualities
-		for (std::map<string, tuple<string, string>>::iterator it = reads.begin(); it != reads.end(); ++it) {
-			string name = it->first;
-			tuple<string, string> data = it->second;
-			this->sequence[name] = get<0>(data);
-			this->quality[name] = get<1>(data);
-		}
+        // get sequences and qualities
+        for (std::map<string, tuple<string, string>>::iterator it = reads.begin(); it != reads.end(); ++it) {
+            string name = it->first;
+            tuple<string, string> data = it->second;
+            this->sequence[name] = get<0>(data);
+            this->quality[name] = get<1>(data);
+        }
+        
+        mappings = get_mappings(mappings_path);
+    }
+
+private:
+    // read layout file, return sequence object
+    string get_backbone(string path) {
+        list<string> lines = read_file(path);
+        return clean(lines.back());
+    }
+
+    // get list of reads
+    map<string, tuple<string, string>> get_reads(string path) {
+        map<string, tuple<string, string>> reads;
+        string name, sequence, quality;
+        list<string> lines = read_file(path);
+        while (!lines.empty())
+        {
+            name = clean(lines.front());
+            name = name.substr(1, name.size()); //ignore first char '@'
+            lines.pop_front();
+            sequence = clean(lines.front());
+            lines.pop_front();
+            lines.pop_front();
+            quality = clean(lines.front());
+            lines.pop_front();
+            reads[name] = make_tuple(sequence, quality);
+        }
+        return reads;
+    }
 
 
-		list<Mapping> mappings = get_mappings(mappings_path);
-		// create map where: key = index on backbone, value = list of Mappings that start at that index
-		// main programs iterates over backbone and checks if there are mapped queries that start at that index.
-		for (list<Mapping>::iterator it = mappings.begin(); it != mappings.end(); ++it) {
-			int index = it->t_start;
-			list<Mapping> temp = index_to_mapping[index];
-			temp.push_back(*it);
-			this->index_to_mapping[index] = temp;
-		}
-
-	}
-    
     // Read mapping file, expects .paf format i
     map<int, list<string>> get_mappings(string path){
         string read_id, cigar, temp, read, new_read;
