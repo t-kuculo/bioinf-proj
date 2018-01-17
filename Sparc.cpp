@@ -76,7 +76,7 @@ string get_edge(string sequence){
         else if(islower(sequence[i])){
             edge += toupper(sequence[i]);
         }
-        else if(sequence[i]=="_"){
+        else if(sequence.at(i) == '_'){
             edge += sequence[i];
         }
         if(b == g) break;
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
     Edge max;
 	string backbone_path, reads_path, mappings_path, output_path;
     string sequence, quality, final_sequence;
-    list<Mapping> mappings;
+    list<tuple<string, string>> mappings;
     int maxweight = 0;
     int last;
 
@@ -246,8 +246,8 @@ int main(int argc, char* argv[])
     while(true){
         if(data.mappings.count(current->index)){
             mappings = data.mappings[current->index];
-            for(list<Mapping>::iterator it = mappings.begin(); it != mappings.end(); ++it){
-                sequence = get<0>(*it)
+            for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
+                sequence = get<0>(*it);
                 quality = get<1>(*it);
                 insert(current, sequence, quality);
             }
@@ -265,11 +265,11 @@ int main(int argc, char* argv[])
     
     ofstream output;
     output.open(output_path);
-    output << ">" << data.index_to_mapping[0].front().t_name << "_fixed\n";
+    output << ">" << "consensus_output\n";
     output << final_sequence << "\n";
     output.close();
     
-    printf("new sequence written to %s\n", output_path);
+    printf("new sequence written to %s\n", output_path.c_str());
 	return 0;
 }
 
