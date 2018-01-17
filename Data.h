@@ -31,11 +31,12 @@ string clean(string str) {
 class Data {
 public:
 	string backbone;
-	map<string, string> quality;
 	map<int, list<string>> mappings;
     void prepare_data(string, string, string);
     
 private:
+    map<string, string> quality;
+    map<string, string> sequence;
     string get_backbone(string);
     map<string, tuple<string, string>> get_reads(string path);
     map<int, list<string>>get_mappings(string);
@@ -87,8 +88,8 @@ private:
 
     // Read mapping file, expects .paf format i
     map<int, list<string>> get_mappings(string path){
-        string read_id, cigar, temp, read, new_read;
-        map<string, string> reads = this->sequence;
+        string read_id, cigar, temp, read, q, new_read, new_quality;
+        map<string, tuple<string, string> reads = this->sequence;
         int read_start, read_end, target_start, j, k;
         map<int, list<string>> mappings;
         
@@ -99,6 +100,7 @@ private:
             >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> cigar){
                 
             read = reads[read_id].substr(read_start, read_end-read_start);
+            q = quality[read_id].substr(read_start, read_end-read_start);
             temp = "";
             new_read = "";
             j=0;
@@ -111,12 +113,14 @@ private:
                     switch(cigar[i]){
                         case 'M':
                             new_read += read.substr(j, k)
-                            
+                            new_quality += q.substr(j, k)
                         case 'I':
                             for(int g=0; g<k; g++) new_read += tolower(read[j+g]);
+                            new_quality += q.substr(j, k)
                             
                         case 'D':
                             new_read += string(k,'_');
+                            new_quality += string(k,'(');
                     }
                     temp = ""
                     j += k;
@@ -124,9 +128,9 @@ private:
             }
             // Add new sequence to dictionary
             if(mappings.count(target_start))
-                mappings[target_start].push_front(new_read);
+                mappings[target_start].push_front(make_tuple(new_read, new_quality));
             else:
-                mappings[target_start] = *new list<string>(new_read);
+                mappings[target_start] = *new list<string>(make_tuple(new_read, new_quality));
         }
         return mappings;
     }
