@@ -65,20 +65,21 @@ class Data {
        
         ifstream mfile(path);
         
+        // TODO: sometimes there is extra elements in line: get proper tag
         // Read from file: we are only interested in a few fields, ignore all others.
-        while(mfile >> read_id >> temp >> read_start >> read_end >> temp >> temp >> temp >> target_start)
-            while (mfile >> cigar
-            >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> cigar){
-            
-            printf("read: %s %d %d %d %s..\n", read_id.c_str(), read_start, read_end, target_start, cigar.substr(0,10).c_str());
+        while(mfile >> read_id >> temp >> read_start >> read_end >> temp >> temp >> temp >> target_start >> temp){
+            while (temp.substr(0,2) != "cg") mfile >> temp;
+            cigar = temp.substr(5,-1);
+            //printf("read: %s %d %d %d %s..\n", read_id.c_str(), read_start, read_end, target_start, cigar.substr(0,30).c_str());
             read = sequence[read_id].substr(read_start, read_end-read_start);
             q = quality[read_id].substr(read_start, read_end-read_start);
+            //printf("cigar: %s..\nsequence:     %s..\nquality:      %s..\n", cigar.substr(0,15).c_str(), read.substr(0,50).c_str(), q.substr(0,50).c_str());
             temp = "";
             new_read = "";
             new_quality = "";
             j=0;
             // Modify sequence to include insertions, deletions
-            for(int i=5; i<cigar.size(); i++){
+            for(int i=0; i<cigar.size(); i++){
                 if(isdigit(cigar[i])) 
                     temp += cigar[i];
                 else{
@@ -100,7 +101,7 @@ class Data {
                             new_read += string(k,'_');
                             new_quality += string(k,'(');
                     }
-                    temp = "";
+                temp = "";
                 }  
             }
             
@@ -108,6 +109,7 @@ class Data {
             if(!mappings.count(target_start))
                 mappings[target_start] = *new list<tuple<string, string>>();
             mappings[target_start].push_front(make_tuple(new_read, new_quality));
+            //printf("new sequence: %s\nnew quality:  %s\n\n", new_read.substr(0,50).c_str(), new_quality.substr(0,50).c_str());
         }
         return mappings;
     }

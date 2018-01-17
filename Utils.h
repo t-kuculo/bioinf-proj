@@ -38,10 +38,11 @@ public:
    Returns: next node
    */
 	void update(string seq, string quality, int index) {
-		int q = 0;
+		float q = 0;
 		// convert quality string to int
 		for (int i = 0; i < quality.size(); i++)
 			q += int(quality[i])-int('!');
+        q /= quality.size();
         
         for (list<Edge>::iterator it = this->edges->begin(); it != this->edges->end(); ++it) {
             // if matching edge found, add quality to weight
@@ -53,7 +54,7 @@ public:
             
         // else, create new edge, create new node if necessary 
         string node_seq = seq.substr(seq.size() - k, k);
-        string edge_seq = seq.substr(0,g);
+        string edge_seq = seq;
         
         Edge * new_edge = (Edge *)malloc(sizeof(Edge));
         new_edge->seq = new string(edge_seq);
@@ -70,6 +71,7 @@ public:
         else
             new_edge->next = (Node *)temp;
     
+        //printf("new edge: [%s]--%s-->[%s]\n", this->seq->c_str(), new_edge->seq->c_str(), new_edge->next->seq->c_str());
         edges->push_back(*new_edge);
         
     }
@@ -81,7 +83,7 @@ public:
                 return it->next;
             }
         }
-        printf("Error! Edge not found.");
+        printf("Error! Edge not found.\n");
         return 0;
     }
 
