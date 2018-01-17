@@ -31,30 +31,29 @@ class Data {
     map<string, string> quality;
     map<string, string> sequence;
     
-        // read layout file, return sequence object
+    // read layout file, return sequence object
     string get_backbone(string path) {
         list<string> lines = read_file(path);
         return clean(lines.back());
     }
 
     // get list of reads
-    map<string, tuple<string, string>> get_reads(string path) {
+    void get_reads(string path) {
         map<string, tuple<string, string>> reads;
-        string name, sequence, quality;
+        string name;
         list<string> lines = read_file(path);
         while (!lines.empty())
         {
             name = clean(lines.front());
             name = name.substr(1, name.size()); //ignore first char '@'
             lines.pop_front();
-            sequence = clean(lines.front());
+            sequence[name] = clean(lines.front());
             lines.pop_front();
             lines.pop_front();
-            quality = clean(lines.front());
+            quality[name] = clean(lines.front());
             lines.pop_front();
-            reads[name] = make_tuple(sequence, quality);
+            //printf("read: %s %s.. %s..\n", name.c_str(),sequence[name].substr(0,20).c_str(),quality[name].substr(0,20).c_str());
         }
-        return reads;
     }
 
     // TODO: Do not use new_quality
@@ -67,9 +66,11 @@ class Data {
         ifstream mfile(path);
         
         // Read from file: we are only interested in a few fields, ignore all others.
-        while(mfile >> read_id >> temp >> read_start >> read_end >> temp >> temp >> temp >> target_start >> temp
-            >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> cigar){
-                
+        while(mfile >> read_id >> temp >> read_start >> read_end >> temp >> temp >> temp >> target_start)
+            while (mfile >> cigar
+            >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> temp >> cigar){
+            
+            printf("read: %s %d %d %d %s..\n", read_id.c_str(), read_start, read_end, target_start, cigar.substr(0,10).c_str());
             read = sequence[read_id].substr(read_start, read_end-read_start);
             q = quality[read_id].substr(read_start, read_end-read_start);
             temp = "";
@@ -86,25 +87,27 @@ class Data {
                         case 'M':
                             new_read += read.substr(j, k);
                             new_quality += q.substr(j, k);
+                            j += k;
+                            break;
+                            
                         case 'I':
                             for(int g=0; g<k; g++) new_read += tolower(read[j+g]);
                             new_quality += q.substr(j, k);
+                            j += k;
+                            break;
                             
                         case 'D':
                             new_read += string(k,'_');
                             new_quality += string(k,'(');
                     }
                     temp = "";
-                    j += k;
                 }  
             }
+            
             // Add new sequence to dictionary
-            if(mappings.count(target_start))
-                mappings[target_start].push_front(make_tuple(new_read, new_quality));
-            else{
+            if(!mappings.count(target_start))
                 mappings[target_start] = *new list<tuple<string, string>>();
-                mappings[target_start].push_front(make_tuple(new_read, new_quality));
-            }
+            mappings[target_start].push_front(make_tuple(new_read, new_quality));
         }
         return mappings;
     }
@@ -116,16 +119,7 @@ public:
     void prepare_data(string backbone_path, string reads_path, string mappings_path) {
         
         this->backbone = get_backbone(backbone_path);
-        map<string, tuple<string, string>> reads = get_reads(reads_path);
-
-        // get sequences and qualities
-        for (std::map<string, tuple<string, string>>::iterator it = reads.begin(); it != reads.end(); ++it) {
-            string name = it->first;
-            tuple<string, string> data = it->second;
-            this->sequence[name] = get<0>(data);
-            this->quality[name] = get<1>(data);
-        }
-        
+        get_reads(reads_path);
         mappings = get_mappings(mappings_path);
     }
 
