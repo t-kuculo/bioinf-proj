@@ -9,9 +9,9 @@
 #include <cstdlib>
 
 using namespace std;
-extern int k, g;
-
 class Node;
+extern int k, g;
+extern Node *graph;
 Node *find_node(Node *, int, string);
 
 // Edge class, contains g-length sequence and a weight
@@ -59,7 +59,7 @@ public:
         Edge * new_edge = (Edge *)malloc(sizeof(Edge));
         new_edge->seq = new string(edge_seq);
         new_edge->weight = q;
-        void * temp = find_node(this, index, node_seq);
+        void * temp = find_node(graph, index, node_seq);
         
         if(temp == nullptr){
             Node * new_node = (Node *)malloc(sizeof(Node));
@@ -89,7 +89,7 @@ public:
 
 };
 
-// BFS from current node: find correct index and sequence
+// BFS from given node: find correct index and sequence
 Node *find_node(Node *current, int i, string seq){
     Node *node;
     list<Node *> queue = *new list<Node *>();
