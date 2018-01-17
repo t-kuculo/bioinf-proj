@@ -5,6 +5,22 @@
 
 // TODO: clean up!!
 
+Node * create_node(string *seq, int index, list<Edge> *edges){
+    Node * node = (Node *)malloc(sizeof(Node));
+    node->seq = seq;
+    node->index = index;
+    node->edges = edges;
+    return node;
+}
+Edge create_edge(string *seq, int weight, Node *next){
+    Edge *edge = (Edge *)malloc(sizeof(Edge));
+    edge->seq = seq;
+    edge->weight = weight;
+    if(next)
+        edge->next = next;
+    return *edge;
+}
+
 void test_graph(Node * current, int limit) {
     int i=0;
 	while (i<=limit && current->edges->size()) {
@@ -17,43 +33,7 @@ void test_graph(Node * current, int limit) {
         printf(" .. (cont.)\n");
 }
 
- /*
-  * Initializes graph: convert backbone sequence to k-mer graph.
-  * 
-  * input:   backbone string
-  * returns: pointer to root node
-  * 
-  * author: Ana Brassard
- */
-Node *init_graph(string backbone) {
-	string seq;
-    Node * current;
-    Node * root;
-	int i = k+g;
-    
-    // Create first node (root)
-	seq = backbone.substr(0, k);
-	root = (Node *)malloc(sizeof(Node));
-    root->seq = new string(seq);
-    root->index = 0;
-    root->edges = new list<Edge>();
-    
-    seq = backbone.substr(k, g);
-    string quality(g, '$'); // backbone quality is 
-    root->update(seq, quality, g);
-    current = root->next(seq);
-    
-    // Add remaining nodes and edges
-	while (i<backbone.size()-k) {
-		seq = backbone.substr(i, g);
-		string quality(g, '(');
-		current->update(seq, quality, i+g-k);
-		i += g;
-        current = current->next(seq);
-	}
-    
-    return root;
-}
+
 // used in debug. prints node name and edges + weights
 void print_node(Node * node){
     printf("%d. %s -> [ ", node->index, node->seq->c_str());
@@ -91,12 +71,17 @@ string remove_char(string s, char a){
         if (s[i]!= a) new_s += s[i];
     return new_s;
 }
+
 // insert new read to k-mer graph
 void insert(Node *current, string sequence, string quality){
     Node *root = current;
     string seq, q;
     int j, i = k;
     
+    if(!current->seq->compare(sequence.substr(0,k))){
+        current->update(sequence.substr(0,k), quality.substr(0,k), current->index+g);
+        current = current->next(sequence.substr(0,k));
+    }
     while (i<sequence.size()-g) {
 		seq = get_edge(sequence.substr(i,-1));
 		q = quality.substr(i, seq.size());
@@ -105,9 +90,36 @@ void insert(Node *current, string sequence, string quality){
 		i += g;
         current = current->next(seq);
 	}
-    printf("Inserted:  %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
+    //printf("Inserted:  %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
 }
 
+ /*
+  * Initializes graph: convert backbone sequence to k-mer graph.
+  * 
+  * input:   backbone string
+  * returns: pointer to root node
+  * 
+  * author: Ana Brassard
+ */
+Node *init_graph(string backbone) {
+	string seq;
+    Node *root, *first;
+    Edge start;
+	int i = k+g;
+    
+    // graph starts with empty node with edge that points to first k of backbone:
+    //  []--AA-->[AA]   i.e. [root]--start-->[first]
+    first = create_node(new string(backbone.substr(0, k)), 0, new list<Edge>());
+    start = create_edge(new string(backbone.substr(0, k)), 0, first);
+    list<Edge> *temp = new list<Edge>();
+    temp->push_front(start);
+    root = create_node(new string("*"), -1, temp);
+    //convert backbone to k-mer graph
+    //print_tree(root, 30);
+    insert(root, backbone, string(backbone.size(), ')')); // mid-low confidence to backbone
+    
+    return root;
+}
 
 string get_sequence(Node *root){
     // list of paths: (path, weight, next node)
@@ -164,6 +176,14 @@ string get_sequence(Node *root){
     return root->seq->data()+max_path;
 }
 
+// return backbone node at index i
+Node *get_backbone_node(int i){
+    Node * current = graph;
+    while(current->index != i)
+        current = current->edges->front().next;
+    return current;
+}
+
 // iterate over data, update graph, find best path, write to file
 /*
  * Main program of Sparc algorithm. 
@@ -180,18 +200,20 @@ string get_sequence(Node *root){
  * 
  * Author: Ana Brassard
 */
-
-int g, k;
+//global variables
+int g, k; 
+Node *graph;
 int main(int argc, char* argv[])
 {
 	Data data;
-	Node *graph, *current;
+	Node *current;
+    Edge *start;
     Edge max;
 	string backbone_path, reads_path, mappings_path, output_path;
     string sequence, quality, final_sequence;
     list<tuple<string, string>> mappings;
     int maxweight = 0;
-    int last;
+    int prev, index;
 
 	// get input parameters
 	for (int i = 1; i < argc; ++i)
@@ -233,14 +255,23 @@ int main(int argc, char* argv[])
 	data.prepare_data(backbone_path, reads_path, mappings_path);
 	printf("data ready\n");
     
-    // initialize graph: convert backbone to k-mer graph
-	graph = (Node *)malloc(sizeof(Node));
-    graph->seq = new string(data.backbone.substr(0, k));
-    graph->index = 0;
-    graph->edges = new list<Edge>();
-    insert(graph, data.backbone, string(data.backbone.size(), ')')); // mid-low confidence to backbone
+    // initialize graph: 
+	graph = init_graph(data.backbone);
 	printf("graph initialized\n");
     
+    //go through mappings, insert to graph
+    for(map<int, list<tuple<string, string>>>::iterator m_it=data.mappings.begin(); m_it!= data.mappings.end(); ++m_it){
+        index = m_it->first;
+        mappings = m_it->second;
+        for(int i=0; i*g<index; i++)
+            prev = i*g;
+        for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
+                sequence = get<0>(*it).substr(prev+g, -1);
+                quality = get<1>(*it).substr(prev+g, -1);
+                insert(get_backbone_node(prev), sequence, quality);
+            }
+    }
+    /*
     // go through backbone indices, add new sequence to graph if matched 
     current = graph;
     do{
@@ -250,23 +281,22 @@ int main(int argc, char* argv[])
             for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
                 sequence = get<0>(*it);
                 quality = get<1>(*it);
-                insert(current, sequence, quality);
+                insert(get_backbone_node(prev), sequence, quality);
             }
         }
         current = current->next(current->edges->front().seq->c_str()); //edge to next backbone node is always at head of edge list
         //printf("Next node: [%d. %s]\n", current->index, current->seq->substr(0,25).c_str());
-        
     }while(current->edges->size());
-    
+    */
     printf("graph constructed\n");
     
     final_sequence = get_sequence(graph);
-    //print_tree(graph, 30);
+    print_tree(graph, 30);
     
     ofstream output;
     output.open(output_path);
     output << ">" << "consensus_output\n";
-    output << final_sequence << "\n";
+    output << final_sequence << "\n\n";
     output.close();
     
     printf("new sequence written to %s\n", output_path.c_str());
