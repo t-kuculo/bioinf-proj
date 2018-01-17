@@ -1,9 +1,9 @@
-// Sparc.cpp : Defines the entry point for the console application.
-//
-
 #include "Utils.h"
 #include <string>
 #include <algorithm>
+#include "Data.h"
+
+// TODO: clean up!!
 
 void test_graph(Node * current, int limit) {
     int i=0;
@@ -17,8 +17,14 @@ void test_graph(Node * current, int limit) {
         printf(" .. (cont.)\n");
 }
 
-//TODO: insert rest of backbone?
-// initializes k-mer graph using backbone
+ /*
+  * Initializes graph: convert backbone sequence to k-mer graph.
+  * 
+  * input:   backbone string
+  * returns: pointer to root node
+  * 
+  * author: Ana Brassard
+ */
 Node *init_graph(string backbone) {
 	string seq;
     Node * current;
@@ -57,30 +63,49 @@ void print_node(Node * node){
     printf("]\n");
 }
 
+// TODO: quality without added deletions
+// gets sequence for next edge
+string get_edge(string sequence){
+    int b = 0;
+    string edge;
+    for(int i=0; i<sequence.size(); i++){
+        if(isupper(sequence[i])){
+            b++;
+            edge += sequence[i];
+        }
+        else if(islower(sequence[i])){
+            edge += toupper(sequence[i]);
+        }
+        else if(sequence[i]=="_"){
+            edge += sequence[i];
+        }
+        if(b == g) break;
+    }
+    return edge;
+}
+
+// TODO: move to utils
+string remove_char(string s, char a){
+    string new_s;
+    for(int i=0; i<s.size(); i++)
+        if (s[i]!= a) new_s += s[i];
+    return new_s;
+}
 // insert new read to k-mer graph
 void insert(Node *current, string sequence, string quality){
     Node *root = current;
     string seq, q;
-    int x, i = k;
+    int j, i = k;
     
-    
-    // find matching node in sequence
-    if(sequence.substr(i-k, k).compare(current->seq->data())) return;/*{
-        while(sequence.substr(i+g-k, k).compare(current->seq->data())){
-            i+=g;
-        }
-        i+=g;
-    }
-    */
-    x=i-k;
     while (i<sequence.size()-g) {
-		seq = sequence.substr(i, g);
-		q = quality.substr(i, g);
+		seq = get_edge(sequence.substr(i,-1));
+		q = quality.substr(i, seq.size());
+        seq = remove_char(seq, '_');
 		current->update(seq, q, current->index+g);
 		i += g;
         current = current->next(seq);
 	}
-    //printf("Inserted: %s at index %d\n", sequence.substr(x,50).c_str(), root->index);
+    printf("Inserted: %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
 }
 
 
@@ -152,6 +177,8 @@ string get_sequence(Node *root){
  *   -r : reads file (.fastq)
  *   -m : mapping file (.paf)
  *   -o : output file
+ * 
+ * Author: Ana Brassard
 */
 
 int g, k;
@@ -214,14 +241,14 @@ int main(int argc, char* argv[])
     insert(graph, data.backbone, string(data.backbone.size(), ')')); // mid-low confidence to backbone
 	printf("graph initialized\n");
     
+    // go through backbone indices, add new sequence to graph if matched 
     current = graph;
-    // go through backbone, add new sequence to graph if matched 
     while(true){
         if(data.mappings.count(current->index)){
             mappings = data.mappings[current->index];
             for(list<Mapping>::iterator it = mappings.begin(); it != mappings.end(); ++it){
-                sequence = data.sequence[it->q_name].substr(it->q_start, it->q_end-it->q_start);
-                quality = data.quality[it->q_name].substr(it->q_start, it->q_end-it->q_start);
+                sequence = get<0>(*it)
+                quality = get<1>(*it);
                 insert(current, sequence, quality);
             }
         }
@@ -234,8 +261,7 @@ int main(int argc, char* argv[])
     printf("graph constructed\n");
     
     final_sequence = get_sequence(graph);
-    //final_sequence = "xx";
-    print_tree(graph, 30);
+    //print_tree(graph, 30);
     
     ofstream output;
     output.open(output_path);
@@ -243,7 +269,7 @@ int main(int argc, char* argv[])
     output << final_sequence << "\n";
     output.close();
     
-    printf("new sequence written to data/output.fasta\n");
+    printf("new sequence written to %s\n", output_path);
 	return 0;
 }
 
