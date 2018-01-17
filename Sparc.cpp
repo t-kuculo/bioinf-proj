@@ -243,20 +243,17 @@ int main(int argc, char* argv[])
     
     // go through backbone indices, add new sequence to graph if matched 
     current = graph;
-    while(true){
-        if(data.mappings.count(current->index)){
-            mappings = data.mappings[current->index];
-            for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
-                sequence = get<0>(*it);
-                quality = get<1>(*it);
-                insert(current, sequence, quality);
-            }
+    do{
+        if(!data.mappings.count(current->index)) continue;
+        mappings = data.mappings[current->index];
+        for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
+            sequence = get<0>(*it);
+            quality = get<1>(*it);
+            insert(current, sequence, quality);
         }
-        if(!current->edges->size())
-            break;
         current = current->next(current->edges->front().seq->c_str());
-        //printf("Next node: %d. %s\n",current->index, current->seq->c_str());
-    }
+        
+    }while(current->edges->size());
     
     printf("graph constructed\n");
     
