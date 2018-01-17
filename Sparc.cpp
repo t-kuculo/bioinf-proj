@@ -141,20 +141,26 @@ string get_sequence(Node *root){
 
 // iterate over data, update graph, find best path, write to file
 /*
-Needs input:
--g : g (int)
--k : k (int)
--b : backbone file (.fasta)
--r : reads file (.fastq)
--m : mapping file (.paf)
+ * Main program of Sparc algorithm. 
+ * Creates backbone k-mer graph, updates graph for each matched read, searches and finds heaviest path.
+ * New path is consensus.
+ * 
+ * Needs input:
+ *   -g : g (int)
+ *   -k : k (int)
+ *   -b : backbone file (.fasta)
+ *   -r : reads file (.fastq)
+ *   -m : mapping file (.paf)
+ *   -o : output file
 */
+
 int g, k;
 int main(int argc, char* argv[])
 {
 	Data data;
 	Node *graph, *current;
     Edge max;
-	string backbone_path, reads_path, mappings_path;
+	string backbone_path, reads_path, mappings_path, output_path;
     string sequence, quality, final_sequence;
     list<Mapping> mappings;
     int maxweight = 0;
@@ -163,6 +169,8 @@ int main(int argc, char* argv[])
 	// get input parameters
 	for (int i = 1; i < argc; ++i)
 	{
+        // TODO: add help option
+        // TODO: check file formats
 		if (strcmp(argv[i], "-g")==0) {
 			i++;
 			g = atoi(argv[i]);
@@ -188,24 +196,29 @@ int main(int argc, char* argv[])
 			mappings_path = argv[i];
 			continue;
 		}
+        if (strcmp(argv[i], "-o")==0) {
+			i++;
+			output_path = argv[i];
+			continue;
+		}
 	}
 	printf("k=%d, g=%d\n",k,g);
 	data.prepare_data(backbone_path, reads_path, mappings_path);
-	printf("data prepared\n");
+	printf("data ready\n");
     
+    // initialize graph: convert backbone to k-mer graph
 	graph = (Node *)malloc(sizeof(Node));
     graph->seq = new string(data.backbone.substr(0, k));
     graph->index = 0;
     graph->edges = new list<Edge>();
-    insert(graph, data.backbone, string(data.backbone.size(), ')'));
+    insert(graph, data.backbone, string(data.backbone.size(), ')')); // mid-low confidence to backbone
 	printf("graph initialized\n");
-	//test_graph(graph,20);
     
     current = graph;
     // go through backbone, add new sequence to graph if matched 
     while(true){
-        if(data.index_to_mapping.count(current->index)){
-            mappings = data.index_to_mapping[current->index];
+        if(data.mappings.count(current->index)){
+            mappings = data.mappings[current->index];
             for(list<Mapping>::iterator it = mappings.begin(); it != mappings.end(); ++it){
                 sequence = data.sequence[it->q_name].substr(it->q_start, it->q_end-it->q_start);
                 quality = data.quality[it->q_name].substr(it->q_start, it->q_end-it->q_start);
@@ -225,7 +238,7 @@ int main(int argc, char* argv[])
     print_tree(graph, 30);
     
     ofstream output;
-    output.open("data/output.fasta");
+    output.open(output_path);
     output << ">" << data.index_to_mapping[0].front().t_name << "_fixed\n";
     output << final_sequence << "\n";
     output.close();
