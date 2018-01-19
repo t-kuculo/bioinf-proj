@@ -65,15 +65,12 @@ class Data {
        
         ifstream mfile(path);
         
-        // TODO: sometimes there is extra elements in line: get proper tag
         // Read from file: we are only interested in a few fields, ignore all others.
         while(mfile >> read_id >> temp >> read_start >> read_end >> temp >> temp >> temp >> target_start >> temp){
             while (temp.substr(0,2) != "cg") mfile >> temp;
             cigar = temp.substr(5,-1);
-            //printf("read: %s %d %d %d %s..\n", read_id.c_str(), read_start, read_end, target_start, cigar.substr(0,30).c_str());
             read = sequence[read_id].substr(read_start, read_end-read_start);
             q = quality[read_id].substr(read_start, read_end-read_start);
-            //printf("cigar: %s..\nsequence:     %s..\nquality:      %s..\n", cigar.substr(0,15).c_str(), read.substr(0,50).c_str(), q.substr(0,50).c_str());
             temp = "";
             new_read = "";
             new_quality = "";

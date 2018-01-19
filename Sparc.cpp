@@ -72,63 +72,14 @@ string remove_char(string s, char a){
     return new_s;
 }
 
-/*
-// insert new read to k-mer graph
-void insert(Node *current, string sequence, string quality){
-    Node *root = current;
-    string seq,new_edge, q;
-    bool found=false;
-    int i=0;
-    
-    printf("\n-------------\nInserting: %s at index %d \n", sequence.substr(0,10).c_str(), current->index+g);
-    print_tree(graph, current->index+2*g);
-    
-    // see if beginning of sequence already has a node
-    new_edge = sequence.substr(0,k);
-    printf("looking for node: %s\n", new_edge.c_str());
-    for (list<Edge>::iterator it = current->edges->begin(); it != current->edges->end(); ++it) {
-        if(!it->seq->compare(new_edge)){
-            found = true;
-            seq = new_edge;
-            //printf("found!\n");
-            break;
-        }
-    }
-     // if start of sequence did not match: add new node that connects to previous
-    if(!found){
-        seq = get_edge(sequence);
-        seq = seq.substr(seq.size()-k-1, k);
-        q = quality.substr(i, seq.size());
-        new_edge = remove_char(seq,'_');
-        current->update(new_edge, q, current->index+g);
-    }
-    current = current->next(new_edge);
-    i+=seq.size();
 
-    // insert remainder of sequence
-    printf("next inserting from: %s..\n",sequence.substr(i,10).c_str());
-    while (i<sequence.size()-g) {
-		seq = get_edge(sequence.substr(i,-1));
-		q = quality.substr(i, seq.size());
-        int t = i;
-        i += seq.size();
-        new_edge = remove_char(seq, '_');
-        //printf("New edge: %s (from: %s..)\n", seq.c_str(), sequence.substr(t,10).c_str());
-		current->update(new_edge, q, current->index+g);
-        current = current->next(new_edge);
-	}
-    print_tree(graph, root->index+2*g);
-    printf("Inserted:  %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
-}
-*/
 void insert(Node *current, string sequence, string quality){
     Node *root = current;
     string seq,new_edge, q;
     bool found=false;
     int i=0;
     
-    //printf("\n-------------\nInserting: %s at index %d \n", sequence.substr(0,10).c_str(), current->index+g);
-    //print_tree(graph, current->index+2*g);
+    printf("Inserting: %s at index %d \n", sequence.substr(0,10).c_str(), current->index+g);
     
     while (i<sequence.size()-g) {
 		seq = get_edge(sequence.substr(i,-1), g);
@@ -140,7 +91,7 @@ void insert(Node *current, string sequence, string quality){
 		current->update(new_edge, q, current->index+g);
         current = current->next(new_edge);
 	}
-    //print_tree(graph, root->index+2*g);
+    //print_tree(graph, root->index+3*g);
     //printf("Inserted:  %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
 }
 
@@ -167,7 +118,7 @@ Node *init_graph(string backbone) {
     root = create_node(new string("*"), -g, temp);
     graph = root;
     //convert backbone to k-mer graph
-    insert(root, backbone, string(backbone.size(), ')')); // mid-low confidence to backbone
+    insert(first, backbone.substr(k,-1), string(backbone.size()-k, ')')); // mid-low confidence to backbone
     
     return root;
 }
@@ -313,6 +264,7 @@ int main(int argc, char* argv[])
     //go through mappings, insert to graph
     for(map<int, list<tuple<string, string>>>::iterator m_it=data.mappings.begin(); m_it!= data.mappings.end(); ++m_it){
         index = m_it->first;
+        if(index>=12) return 0;
         mappings = m_it->second;
         // find node indices before and after matched index (e.g. if g=3, for index 2 get 0, 3)
         for(int i=0; i*g<=index; i++)
@@ -336,9 +288,11 @@ int main(int argc, char* argv[])
             }
             //printf("mapping:\n    %s\n    %s\n", sequence.substr(0,25).c_str(), data.backbone.substr(prev+g,25).c_str());
             // find first node match
-            current = find_node(graph, prev+g, sequence.substr(0,k));
+            current = find_node(graph, prev+g, sequence.substr(0,k)); //TODO: why doesn't it find correct node?
+            print_tree(graph, prev+3*g);
             if(current){
                 // if node is found, insert rest of sequence
+                printf("\nMatching root %s found at %d\n", current->seq->c_str(), prev+g);
                 insert(current, sequence.substr(k,-1), quality.substr(k,-1));
             }
             else{
@@ -347,6 +301,8 @@ int main(int argc, char* argv[])
                 new_edge = get_edge(sequence, k);
                 current->update(new_edge, quality.substr(0, new_edge.size()), prev+g);
                 current = current->next(new_edge);
+                printf("\nRoot of %s not found at %d, created new node: %s \n", 
+                                                sequence.substr(0, 15).c_str(), prev+g, current->seq->c_str());
                 insert(current, sequence.substr(new_edge.size(), -1), quality.substr(new_edge.size(), -1));
             }
             cnt++;
