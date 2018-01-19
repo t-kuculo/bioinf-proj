@@ -18,10 +18,12 @@ Node *find_node(Node *, int, string);
 class Edge {
 public:
 	string *seq;
-	int weight;
+	float weight;
 	Node *next;
 };
 
+
+    
 // Node of k-mer graph, contains a k-length sequence and a list of edges
 class Node {
 public:
@@ -32,6 +34,7 @@ public:
     bool operator==(const Node &n1){
         return(seq->data()==n1.seq->data() && index == n1.index);
     }
+    
    /*
    Update current node in k-mer graph.
    If matching edge exists, add weight. Otherwise, add new edge.
@@ -89,22 +92,31 @@ public:
 
 };
 
-// BFS from given node: find correct index and sequence
+Node * new_node(string seq, int index){
+    Node * new_node = (Node *)malloc(sizeof(Node));
+    new_node->seq = new string(seq);
+    new_node->index = index;
+    new_node->edges = new list<Edge>();
+    return new_node;
+}
+    
+    
+// DFS from given node: find correct index and sequence
 Node *find_node(Node *current, int i, string seq){
     Node *node;
     list<Node *> queue = *new list<Node *>();
     set<Node *> visited = *new set<Node *>();
     
-    queue.push_back(current);
+    queue.push_front(current);
     while(!queue.empty()){
         node = queue.front();
         queue.pop_front();
         if(node->index==i && node->seq->compare(seq)==0){
             return node;
         }
-        for(list<Edge>::iterator it = current->edges->begin(); it != current->edges->end(); ++it) {
-            if(!visited.count(it->next))
-                queue.push_back(it->next);
+        for(list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
+            if(!visited.count(it->next) && it->next->index <= i)
+                queue.push_front(it->next);
         }
         visited.insert(node);
     }
@@ -126,7 +138,7 @@ void print_tree(Node *root, int maxindex){
         printf("\n%s[%d. %s]\n",string(node->index+g,' ').c_str(), node->index, node->seq->c_str());
         for(list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
             if(!visited.count(node))
-                printf("%s  --%s(%d)-->[%d. %s]\n",string(node->index+g,' ').c_str(),it->seq->c_str(), 
+                printf("%s  --%s(%f)-->[%d. %s]\n",string(node->index+g,' ').c_str(),it->seq->c_str(), 
                                             it->weight, node->next(it->seq->data())->index, node->next(it->seq->data())->seq->c_str());
                 
             if(!visited.count(it->next))

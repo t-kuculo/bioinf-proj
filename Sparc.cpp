@@ -12,7 +12,7 @@ Node * create_node(string *seq, int index, list<Edge> *edges){
     node->edges = edges;
     return node;
 }
-Edge create_edge(string *seq, int weight, Node *next){
+Edge create_edge(string *seq, float weight, Node *next){
     Edge *edge = (Edge *)malloc(sizeof(Edge));
     edge->seq = seq;
     edge->weight = weight;
@@ -72,7 +72,16 @@ string remove_char(string s, char a){
     return new_s;
 }
 
+// convert quality string to float
+float get_quality(string quality){
+    float w = 0;
+    for (int i = 0; i < quality.size(); i++)
+        w += int(quality[i])-int('!');
+    w /= quality.size();
+    return w;
+}
 
+/*
 void insert(Node *current, string sequence, string quality){
     Node *root = current;
     string seq,new_edge, q;
@@ -94,7 +103,78 @@ void insert(Node *current, string sequence, string quality){
     //print_tree(graph, root->index+3*g);
     //printf("Inserted:  %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
 }
+*/
 
+void insert(Node *current, string sequence, string quality){
+    Node *node;
+    list<Node *> queue;// = *new list<Node *>();
+    set<Node *> visited;// = *new set<Node *>();
+    map<tuple<int, string>, Node *> nodes;
+    map<int, Edge> edges;
+    string seq, q, new_edge;
+    int index = current->index;
+    int i=index+g;
+    
+    nodes[make_tuple(index, current->seq->data())] = current;
+    
+    // create map of all nodes to add (new nodes)
+    while(i<=sequence.size()-k){
+        seq = get_edge(sequence.substr(i,-1), g);
+		q = quality.substr(i, seq.size());
+        
+        new_edge = remove_char(seq, '_');
+        edges[index+i-g] = create_edge(new string(new_edge), get_quality(q), nullptr);
+        
+        seq = sequence.substr(new_edge.size()-k, k);
+        node = new_node(seq, index+i);
+        nodes[make_tuple(index+i, seq)] = node;
+        i += seq.size();
+    }
+    
+        
+    // DFS tree, if some node already exists, change pointer to existing node
+    queue.push_front(graph);
+    while(!queue.empty()){
+        node = queue.front();
+        queue.pop_front();
+        if(nodes.count(make_tuple(node->index, node->seq->data())))
+            nodes[make_tuple(node->index, node->seq->data())] = node;
+        for(list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
+            if(!visited.count(it->next) && it->next->index <= i)
+                queue.push_front(it->next);
+        }
+        visited.insert(node);
+    }
+    
+    // convert node map to node array
+    Node *node_list[ edges.size()];
+    i = 0;
+    for(map<tuple<int, string>, Node *>::iterator it=nodes.begin(); it!=nodes.end(); ++it)
+        node_list[i++] = it->second;
+
+    printf("Inserting %d elements at index %d from %s\n", edges.size(), index, sequence.substr(0,25).c_str());
+    
+    Edge edge;
+    //For found and created nodes...
+    for(i=0; i<edges.size()-1; i++){
+         edge = edges[node_list[i]->index];
+         for (list<Edge>::iterator it = node_list[i]->edges->begin(); it != node_list[i]->edges->end(); ++it) {
+            // if matching edge found, add quality to weight
+            if (edge.seq->compare(it->seq->c_str()) == 0){
+                it->weight += edge.weight;
+                break;
+            }
+            // else, create new edge, connect to previous and next node
+            else{
+                edge.next = node_list[i+1];
+                node_list[i]->edges->push_back(edge);
+            }
+        }
+    }
+    
+    
+    
+}
  /*
   * Initializes graph: convert backbone sequence to k-mer graph.
   * 
@@ -178,14 +258,6 @@ string get_sequence(Node *root){
     return max_path;
 }
 
-// return backbone node at index i
-Node *get_backbone_node(int i){
-    Node * current = graph;
-    while(current->index != i)
-        current = current->edges->front().next;
-    return current;
-}
-
 // iterate over data, update graph, find best path, write to file
 /*
  * Main program of Sparc algorithm. 
@@ -208,7 +280,7 @@ Node *graph;
 int main(int argc, char* argv[])
 {
 	Data data;
-	Node *current;
+	Node *current, *previous;
     Edge edge;
 	string backbone_path, reads_path, mappings_path, output_path;
     string sequence, quality, final_sequence, new_edge;
@@ -261,53 +333,46 @@ int main(int argc, char* argv[])
     //print_tree(graph, 30);
     
     int strt,cnt = 0;
-    //go through mappings, insert to graph
-    for(map<int, list<tuple<string, string>>>::iterator m_it=data.mappings.begin(); m_it!= data.mappings.end(); ++m_it){
-        index = m_it->first;
-        if(index>=12) return 0;
-        mappings = m_it->second;
-        // find node indices before and after matched index (e.g. if g=3, for index 2 get 0, 3)
-        for(int i=0; i*g<=index; i++)
-            prev = i*g;
-        if(index==0) prev = -g;  // special case: adding to root
-        //printf("Adding sequence %d to index %d, starting from %d\n", index, prev+g,prev);
+    previous = graph;
+    current = graph->edges->front().next;
+    for(int i=0; i<sequence.size()-g; i++){
+        // advance forward over backbone
+        if(i>current->index){
+            previous = current;
+            current = current->edges->front().next;
+        }
+        if(!data.mappings.count(i)) continue;
+        mappings = data.mappings[i];
         for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
             sequence = get<0>(*it);
             quality = get<1>(*it);
             //trim sequence start to align with node if not adding to root
-            if(index>0){
-                sequence = sequence.substr(prev+g-index, -1);
-                quality = quality.substr(prev+g-index, -1);
-            }
-           
-            // while sequence start is deletion of length k, skip to next node index
-            while(sequence.substr(0,k)==string(k,'_')){
-                sequence = sequence.substr(g, -1);
-                quality = sequence.substr(g, -1);
-                prev += g;
+            if(i<current->index){
+                sequence = sequence.substr(current->index-i, -1);
+                quality = quality.substr(current->index-i, -1);
             }
             //printf("mapping:\n    %s\n    %s\n", sequence.substr(0,25).c_str(), data.backbone.substr(prev+g,25).c_str());
             // find first node match
-            current = find_node(graph, prev+g, sequence.substr(0,k)); //TODO: why doesn't it find correct node?
             print_tree(graph, prev+3*g);
-            if(current){
-                // if node is found, insert rest of sequence
-                printf("\nMatching root %s found at %d\n", current->seq->c_str(), prev+g);
+            if(!current->seq->compare(sequence.substr(0,k))){
+                // if sequence root matches, insert rest of sequence
+                printf("\nMatching root %s found at %d\n", current->seq->c_str(), current->index);
                 insert(current, sequence.substr(k,-1), quality.substr(k,-1));
             }
             else{
-                // if node is not found, create new edge from previous backbone node, then insert rest
-                current = get_backbone_node(prev);
+                // if sequence root does not match, create new edge from previous backbone node, then insert rest
                 new_edge = get_edge(sequence, k);
-                current->update(new_edge, quality.substr(0, new_edge.size()), prev+g);
-                current = current->next(new_edge);
+                previous->update(new_edge, quality.substr(0, new_edge.size()), current->index);
+                current = previous->next(new_edge);
                 printf("\nRoot of %s not found at %d, created new node: %s \n", 
-                                                sequence.substr(0, 15).c_str(), prev+g, current->seq->c_str());
+                                                sequence.substr(0, 15).c_str(), current->index, current->seq->c_str());
                 insert(current, sequence.substr(new_edge.size(), -1), quality.substr(new_edge.size(), -1));
             }
             cnt++;
         }
+ 
     }
+
     
     /*
     // go through backbone indices, add new sequence to graph if matched 
