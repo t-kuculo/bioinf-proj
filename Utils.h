@@ -137,10 +137,12 @@ void print_tree(Node *root, int maxindex){
         if(node->index>maxindex)
             continue;
         printf("\n%s[%d. %s]\n",string(node->index+g,' ').c_str(), node->index, node->seq->c_str());
+        //printf("\n[%d. %s]\n", node->index, node->seq->c_str());
         for(list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
             if(!visited.count(node))
                 printf("%s  --%s(%f)-->[%d. %s]\n",string(node->index+g,' ').c_str(),it->seq->c_str(), 
                                             it->weight, it->next->index, it->next->seq->c_str());
+                // printf(" --%s(%f)-->[%d. %s]\n",it->seq->c_str(), it->weight, it->next->index, it->next->seq->c_str());
                 
             if(!visited.count(it->next) && !added.count(it->next)){
                 queue.push_back(it->next);

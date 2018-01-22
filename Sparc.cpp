@@ -106,7 +106,7 @@ void insert(Node *current, string sequence, string quality){
 */
 
 void insert(Node *current, string sequence, string quality, list<Node *> previous_nodes, list<Node *> current_nodes ){
-    Node *node;
+    Node *node *next_backbone;
     list<Node *> queue;// = *new list<Node *>();
     set<Node *> visited;// = *new set<Node *>();
     map<tuple<int, string>, Node *> nodes;
@@ -117,8 +117,9 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
     
     nodes[make_tuple(index, current->seq->data())] = current;
     
+    
     // create map of all nodes to add (new nodes)
-    while(i<=sequence.size()-g){
+    while(i<sequence.size()-g){
         seq = get_edge(sequence.substr(i,-1), g);
 		q = quality.substr(i, seq.size());
         
@@ -133,7 +134,7 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
         i+=seq.size();
     }
     
-    // TODO: instead of DFS, iterate previous to next nodes like in main
+    //printf("Nodes and edges to add ready\n");
     while(true){
         //printf("current index: %d\n", current_nodes.front()->index);
         visited.clear();
@@ -209,6 +210,12 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
                                                               //  node->edges->back().next->index,node->edges->back().next->seq->c_str());
         }
     }
+    // get next backbone node
+    index = current->index;
+    while(current->edges->front()->index <= index+sequence.size())
+        current = current->edges->front().next;
+    new_edge = create_edge("",0,current);
+    node_list[i]->edges->push_back(new_edge);
 }
 
  /*
@@ -228,7 +235,7 @@ Node *init_graph(string backbone) {
     // graph starts with empty node with edge that points to first k of backbone:
     //  []--AA-->[AA]   i.e. [root]--start-->[first]
     first = create_node(new string(backbone.substr(0, k)), 0, new list<Edge>());
-    start = create_edge(new string(backbone.substr(0, k)), 0, first);
+    start = create_edge(new string(backbone.substr(0, k)), get_quality(string(k, ')')), first);
     list<Edge> *temp = new list<Edge>();
     temp->push_front(start);
     root = create_node(new string("*"), -g, temp);
@@ -246,18 +253,19 @@ Node *init_graph(string backbone) {
 
 string get_sequence(Node *root){
     // list of paths: (path, weight, next node)
-    list<tuple<string, int, Node *>> paths, new_paths;
+    list<tuple<string, float, Node *>> paths, new_paths;
     list<Node *> next;
     string path, max_path;;
     Node * current;
     int weight, last;
-    int max_weight = 0;
+    float max_weight = 0;
     
     // get index of last node
     current = root;
     while(current->edges->size())
-        current = current->next(current->edges->front().seq->data());
+        current = current->edges->front().next;
     last = current->index;
+    printf("Last index: %d\n", last);
     
     // init
     current = root;
@@ -266,39 +274,51 @@ string get_sequence(Node *root){
         next.push_back(it->next);
     }
     
-    while(!next.empty()){
-        current = next.front();
-        next.pop_front();
+    while(true){
         new_paths.clear();
-        for(list<tuple<string, int, Node *>>::iterator p = paths.begin(); p != paths.end(); ++p){
-            if(!(*get<2>(*p)==*current)){
-                new_paths.push_front(*p);
-                continue;
-            }
-            
-            // if node has no further edges and weight > current max and path goes to last node, add string path to found paths
-            if(current->index == last && get<1>(*p) > max_weight){
+        for(list<tuple<string, float, Node *>>::iterator p = paths.begin(); p != paths.end(); ++p){
+            // if weight > current max and path goes to last node, add string path to found paths
+            if(get<1>(*p) > max_weight){
                 max_weight = get<1>(*p);
                 max_path = get<0>(*p);
-                printf("Dead end at index %d\n", current->index);
-                continue;
+                //printf("New max: %f\n", max_weight);
             }
             
             // otherwise, update path with following edges
-            for(list<Edge>::iterator it = current->edges->begin(); it != current->edges->end(); ++it){
+            if(!get<2>(*p)->edges) continue;
+            for(list<Edge>::iterator it = get<2>(*p)->edges->begin(); it != get<2>(*p)->edges->end(); ++it){
                 path = get<0>(*p) + it->seq->data();
                 weight = get<1>(*p) + it->weight;
-                new_paths.push_back(make_tuple(path, weight, it->next));
-                if(find(next.begin(), next.end(),it->next) == next.end())
-                    next.push_back(it->next);
-                
+                // Add new path to node only if heaviest path to it
+                bool found = false;
+                for(list<tuple<string, float, Node *>>::iterator p_ = new_paths.begin(); p_ != new_paths.end(); ++p_){
+                    if(!get<2>(*p_)->seq->compare(it->next->seq->data())){
+                        found = true;
+                        if(weight>get<1>(*p_)){
+                            *p_ = make_tuple(path, weight, it->next);
+                            break;
+                        }
+                    }
+                }
+                if(!found)
+                    new_paths.push_back(make_tuple(path, weight, it->next));
             }
         }
+        if(new_paths.empty()) break;
+        cout<<"[";
+        int pos = 30*(float)(get<2>(new_paths.front())->index)/last;
+        for(int j=0; j<30; ++j){
+            if(j<pos) cout<<"#";
+            else cout <<" ";
+        }
+        cout<<"]"<< (int) (pos/30.0*100)<<"%\r";
+        cout.flush();
         paths = new_paths;
     }
-    printf("Found max path: %s ... (%d)\n", (max_path.substr(0,30)).c_str(), max_weight);
+    printf("\nFound max path: %s ... (%f)\n", (max_path.substr(0,30)).c_str(), max_weight);
     return max_path;
 }
+
 
 // iterate over data, update graph, find best path, write to file
 /*
@@ -376,6 +396,7 @@ int main(int argc, char* argv[])
 	printf("graph initialized\n");
     //print_tree(graph, 30);
     
+    printf("adding sequences...\n");
     int strt,cnt = 0;
     previous_nodes.push_back(graph);
     current_nodes.push_back(graph->edges->front().next);
@@ -401,6 +422,7 @@ int main(int argc, char* argv[])
         
         mappings = data.mappings[i];
         for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
+            
             //printf("Currently %d nodes at index %d\n", (int)current_nodes.size(), current_nodes.front()->index);
             sequence = get<0>(*it);
             quality = get<1>(*it);
@@ -441,16 +463,17 @@ int main(int argc, char* argv[])
                 //printf("\nRoot of %s not found at %d, created new node: %s \n", sequence.substr(0, 15).c_str(), current->index, current->seq->c_str());
                 insert(current, sequence.substr(new_edge.size(), -1), quality.substr(new_edge.size(), -1), previous_nodes, current_nodes);
             }
-            cnt++;
         }
+        cnt++;
         cout<<"[";
-        int pos = 30*(i/(data.backbone.size()-g));
+        int pos = 30*((float)(cnt))/data.mappings.size();
         for(int j=0; j<30; ++j){
             if(j<pos) cout<<"#";
             else cout <<" ";
         }
-        cout<<"]"<<int((i/(data.backbone.size()-g))*100)<<"%\r";
+        cout<<"]"<<(int)(((float)cnt)/(data.mappings.size())*100)<<"%\r";
         cout.flush();
+         
     }
     cout<<endl;
     
@@ -471,9 +494,10 @@ int main(int argc, char* argv[])
         //printf("Next node: [%d. %s]\n", current->index, current->seq->substr(0,25).c_str());
     }while(current->edges->size());
     */
-    printf("\ngraph constructed, %d sequences inserted\n", cnt);
-    print_tree(graph, 30);
+    printf("graph constructed\n");
+    print_tree(graph, 27);
         
+    printf("finding best path...\n");
     final_sequence = get_sequence(graph);
     
     ofstream output;
