@@ -128,6 +128,7 @@ void print_tree(Node *root, int maxindex){
     Node *node;
     list<Node *> queue = *new list<Node *>();
     set<Node *> visited = *new set<Node *>();
+    set<Node *> added = *new set<Node *>();
     
     queue.push_back(root);
     while(!queue.empty()){
@@ -139,10 +140,13 @@ void print_tree(Node *root, int maxindex){
         for(list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
             if(!visited.count(node))
                 printf("%s  --%s(%f)-->[%d. %s]\n",string(node->index+g,' ').c_str(),it->seq->c_str(), 
-                                            it->weight, node->next(it->seq->data())->index, node->next(it->seq->data())->seq->c_str());
+                                            it->weight, it->next->index, it->next->seq->c_str());
                 
-            if(!visited.count(it->next))
+            if(!visited.count(it->next) && !added.count(it->next)){
                 queue.push_back(it->next);
+                added.insert(it->next);
+            }
+                
         }
         visited.insert(node);
     }
