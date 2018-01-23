@@ -1,19 +1,25 @@
+/* 
+ * This file contains the main program: 
+ *      1. construct k-mer graph
+ *      2. add reads
+ *      3. find heaviest path
+ * 
+ *  author: Ana Brassard
+ */
 #include "Data.h"
 
+// global variables:
+int g, k; 
+Node *graph;
 
- /*
-  * Initializes graph: convert backbone sequence to k-mer graph.
-  * 
-  * input:   backbone string
-  * 
-  * author: Ana Brassard
- */
+
+// Initializes graph: convert backbone sequence to k-mer graph.
 void init_graph(string backbone) {
     Node *first;
     Edge first_edge;
     
     // graph starts with empty node with edge that points to first k of backbone:
-    //  []--AA-->[AA]   i.e. [root]--start-->[first]
+    //  []--AA-->[AA]   i.e. [graph]--first_edge-->[first]
     graph = create_node("*", -g,  new list<Edge>());
     first = create_node(backbone.substr(0, k), 0, new list<Edge>());
     first_edge = create_edge(backbone.substr(0, k), get_quality(string(k, ')')), first);
@@ -49,73 +55,148 @@ void init_graph(string backbone) {
     current->edges->push_back(edge);
 }
 
-string get_sequence(Node *root){
-    // list of paths: (path, weight, next node)
-    list<tuple<string, float, Node *>> paths, new_paths;
-    list<Node *> next;
-    string path, max_path;;
-    Node * current;
-    int weight, last;
-    float max_weight = 0;
+
+// Traverses graph and finds heaviest sequence (string).
+string get_best_sequence(){
     
     // get index of last node
-    current = root;
+    Node * current = graph;
+    int last;
     while(current->edges->size())
         current = current->edges->front().next;
     last = current->index;
-    printf("Last index: %d\n", last);
-    
-    // init
-    current = root;
-    for(list<Edge>::iterator it = current->edges->begin(); it != current->edges->end(); ++it){
+
+    // initialize path lists
+    list<tuple<string, float, Node *>> paths, new_paths;    // list of paths: [(path, weight, next node)]
+    current = graph;
+    for(list<Edge>::iterator it = current->edges->begin(); it != current->edges->end(); ++it)
         paths.push_back(make_tuple(it->seq->data(), it->weight, it->next));
-        next.push_back(it->next);
-    }
     
+    // traverse graph from root to last (not including) 
+    double weight;
+    string path;
     while(true){
         new_paths.clear();
         for(list<tuple<string, float, Node *>>::iterator p = paths.begin(); p != paths.end(); ++p){
-            // if weight > current max and path goes to last node, add string path to found paths
-            if(get<1>(*p) > max_weight){
-                max_weight = get<1>(*p);
-                max_path = get<0>(*p);
-                //printf("New max: %f\n", max_weight);
-            }
-            
-            // otherwise, update path with following edges
-            if(!get<2>(*p)->edges) continue;
             for(list<Edge>::iterator it = get<2>(*p)->edges->begin(); it != get<2>(*p)->edges->end(); ++it){
                 path = get<0>(*p) + it->seq->data();
                 weight = get<1>(*p) + it->weight;
-                // Add new path to node only if heaviest path to it
+                // check if new path to node is heavier than last found path to that node
                 bool found = false;
-                for(list<tuple<string, float, Node *>>::iterator p_ = new_paths.begin(); p_ != new_paths.end(); ++p_){
-                    if(!get<2>(*p_)->seq->compare(it->next->seq->data())){
-                        found = true;
-                        if(weight>get<1>(*p_)){
-                            *p_ = make_tuple(path, weight, it->next);
-                            break;
-                        }
+                for(list<tuple<string, float, Node *>>::iterator n_p = new_paths.begin(); n_p != new_paths.end(); n_p++){
+                    if(get<2>(*n_p)->seq->compare(it->next->seq->data()) == 0){
+                        found = true;    
+                        if(weight > get<1>(*n_p))
+                            *n_p = make_tuple(path, weight, it->next);
                     }
                 }
                 if(!found)
                     new_paths.push_back(make_tuple(path, weight, it->next));
             }
         }
-        if(new_paths.empty()) break;
-        cout<<"[";
-        int pos = 30*(float)(get<2>(new_paths.front())->index)/last;
-        for(int j=0; j<30; ++j){
-            if(j<pos) cout<<"#";
-            else cout <<" ";
-        }
-        cout<<"]"<< (int) (pos/30.0*100)<<"%\r";
-        cout.flush();
+        if(new_paths.empty())
+            break;
+        print_progress(get<2>(new_paths.front())->index, last);
         paths = new_paths;
+    }
+    
+    //printf("\nFound max paths:\n");
+    // Iterate over found paths to last node, get heaviest
+    string max_path;
+    double max_weight = 0;
+    if(paths.size()>1){
+        for(list<tuple<string, float, Node *>>::iterator p = paths.begin(); p != paths.end(); ++p){
+            //printf("(%s %f [%d. %s])\n", get<0>(*p).substr(get<0>(*p).size()-k,k).c_str(), get<1>(*p),
+              //                          get<2>(*p)->index, get<2>(*p)->seq->c_str() );
+            if(get<1>(*p) > max_weight){
+                max_weight = get<1>(*p);
+                max_path = get<0>(*p);
+    }}}
+    else{
+        max_path = get<0>(paths.front());
+        max_weight = get<1>(paths.front());
     }
     printf("\nFound max path: %s ... (%f)\n", (max_path.substr(0,30)).c_str(), max_weight);
     return max_path;
 }
+
+
+// iterate from beginning of backbone to last index of mappings
+void add_sequences(map<int, list<tuple<string, string>>> mappings){
+    // add matched reads to graph    
+    list<Node *> current_nodes, previous_nodes;
+    set<Node *> visited;
+        
+    previous_nodes.push_back(graph);
+    current_nodes.push_back(graph->edges->front().next);
+    
+    for(int i=0; i<=mappings.rbegin()->first; i++){
+        // if i passed current node, advance forward: get set of nodes at next index
+        if(i > current_nodes.front()->index){
+            visited.clear();
+            previous_nodes = current_nodes;
+            current_nodes.clear();
+            for(list<Node *>::iterator n = previous_nodes.begin(); n!= previous_nodes.end(); ++n){
+                if(!(*n)->edges->size()) continue;
+                for(list<Edge>::iterator e = (*n)->edges->begin(); e!= (*n)->edges->end(); ++e){
+                    if(visited.count(e->next)==0){
+                        current_nodes.push_back(e->next);
+                        visited.insert(e->next);
+            }}}
+        }
+        
+        Node *current, *previous, *new_current;
+
+        Edge edge;
+        string sequence, quality, new_edge;
+        int prev, index, maxweight = 0;
+    
+        // if no mappings at current index, continue
+        if(!mappings.count(i)) continue;
+        
+        // else: add mapped sequences to graph
+        for(list<tuple<string, string>>::iterator it = mappings[i].begin(); it != mappings[i].end(); ++it){
+            sequence = get<0>(*it);
+            quality = get<1>(*it);
+            
+            //trim sequence start to align with current node
+            if(i%g != 0){
+                sequence = sequence.substr(i%g, -1);
+                quality = quality.substr(i%g, -1);
+            }
+            
+            // look for matching node in current nodes
+            bool found = false;
+            if(i==0)
+                new_edge = get_edge(sequence, k); // special case: adding to root
+            else
+                new_edge = get_edge(sequence, g);
+            for(list<Node *>::iterator n = current_nodes.begin(); n != current_nodes.end(); ++n){
+                if((*n)->seq->compare(new_edge.substr(new_edge.size()-k, k))==0){
+                    found = true;
+                    current = *n;
+                    break;
+                }
+            }
+            
+            // if sequence root does not match, create new edge from previous backbone node and add new node
+            if(!found){
+                current = create_node(new_edge.substr(new_edge.size()-k, k).data(), current_nodes.front()->index, new list<Edge>());
+                edge = create_edge(remove_char(new_edge, '_'), get_quality(quality.substr(0, new_edge.size())), current);
+                previous_nodes.front()->edges->push_back(edge);
+                current_nodes.push_back(current);
+            }
+            
+            // insert rest of sequence
+            sequence = sequence.substr(new_edge.size(), -1);
+            quality = quality.substr(new_edge.size(), -1);
+            insert(current, sequence, quality, previous_nodes, current_nodes); //see: Node.h
+        }
+        print_progress(i, mappings.rbegin()->first);
+         
+    }
+}
+
 
 /*
  * Main program of Sparc algorithm. 
@@ -129,11 +210,7 @@ string get_sequence(Node *root){
  *   -r : reads file (.fastq)
  *   -m : mapping file (.paf)
  *   -o : output file
- * 
- * Author: Ana Brassard
 */
-int g, k; 
-Node *graph;
 int main(int argc, char* argv[])
 {
 	// get input parameters
@@ -175,105 +252,28 @@ int main(int argc, char* argv[])
 	}
 	printf("k=%d, g=%d\n",k,g);
     
-    // get data
     Data data;
 	data.prepare_data(backbone_path, reads_path, mappings_path);
 	printf("data ready\n");
     
-    // initialize graph
 	init_graph(data.backbone);
+    data.backbone = "";
 	printf("graph initialized\n");
-
-    // add matched reads to graph    
-    list<Node *> current_nodes, previous_nodes;
-    set<Node *> visited;
-        
-    previous_nodes.push_back(graph);
-    current_nodes.push_back(graph->edges->front().next);
+    
     printf("adding sequences...\n");
-    
-    // iterate from beginning of backbone to last index of mappings
-    for(int i=0; i<=data.mappings.rbegin()->first; i++){
-        // if i passed current node, advance forward: get set of nodes at next index
-        if(i > current_nodes.front()->index){
-            visited.clear();
-            previous_nodes = current_nodes;
-            current_nodes.clear();
-            for(list<Node *>::iterator n = previous_nodes.begin(); n!= previous_nodes.end(); ++n){
-                if(!(*n)->edges->size()) continue;
-                for(list<Edge>::iterator e = (*n)->edges->begin(); e!= (*n)->edges->end(); ++e){
-                    if(visited.count(e->next)==0){
-                        current_nodes.push_back(e->next);
-                        visited.insert(e->next);
-            }}}
-        }
-        
-        Node *current, *previous, *new_current;
-
-        Edge edge;
-        string sequence, quality, new_edge;
-        int prev, index, maxweight = 0;
-    
-        // if no mappings at current index, continue
-        if(!data.mappings.count(i)) continue;
-        
-        // else: add mapped sequences to graph
-        for(list<tuple<string, string>>::iterator it = data.mappings[i].begin(); it != data.mappings[i].end(); ++it){
-            sequence = get<0>(*it);
-            quality = get<1>(*it);
-            
-            //trim sequence start to align with current node
-            if(i%g != 0){
-                sequence = sequence.substr(i%g, -1);
-                quality = quality.substr(i%g, -1);
-            }
-            
-            // look for matching node in current nodes
-            bool found = false;
-            new_edge = get_edge(sequence, g);
-            for(list<Node *>::iterator n = current_nodes.begin(); n != current_nodes.end(); ++n){
-                if((*n)->seq->compare(new_edge.substr(new_edge.size()-k, k))==0){
-                    found = true;
-                    current = *n;
-                    break;
-                }
-            }
-            
-            // if sequence root does not match, create new edge from previous backbone node and add new node
-            if(!found){
-                current = create_node(new_edge.substr(new_edge.size()-k, k).data(), current_nodes.front()->index, new list<Edge>());
-                edge = create_edge(remove_char(new_edge, '_'), get_quality(quality.substr(0, new_edge.size())), current);
-                previous_nodes.front()->edges->push_back(edge);
-                current_nodes.push_back(current);
-            }
-            
-            // insert rest of sequence
-            sequence = sequence.substr(new_edge.size(), -1);
-            quality = quality.substr(new_edge.size(), -1);
-            insert(current, sequence, quality, previous_nodes, current_nodes);
-        }
-        cout<<"[";
-        int pos = 30*((float)(i))/data.mappings.rbegin()->first;
-        for(int j=0; j<30; ++j){
-            if(j<pos) cout<<"#";
-            else cout <<" ";
-        }
-        cout<<"]"<<(int)(((float)i)/(data.mappings.rbegin()->first)*100)<<"%\r";
-        cout.flush();
-         
-    }
-    cout<<endl;
-    
-    printf("graph constructed\n");
+    add_sequences(data.mappings);    
+    data.mappings.clear();
+    printf("\ngraph constructed\n");
     print_tree(graph, 27);
-        
-    printf("finding best path...\n");
-    string final_sequence = get_sequence(graph);
     
+    printf("finding best path...\n");
+    string best_sequence = get_best_sequence();
+    
+    // write to file
     ofstream output;
     output.open(output_path);
     output << ">" << "consensus_output\n";
-    output << final_sequence << "\n\n";
+    output << best_sequence << "\n\n";
     output.close();
     
     printf("new sequence written to %s\n", output_path.c_str());

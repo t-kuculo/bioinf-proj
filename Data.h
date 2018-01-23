@@ -1,5 +1,9 @@
+/* This file contains code for reading and storing input data
+ * 
+ * author: Tin Kuculo
+ */ 
+ 
 #include "Node.h"
-
 
 // helper function that returns file lines
 list<string> read_file(string path) {
@@ -23,8 +27,6 @@ string clean(string str) {
  * Attributes:
  *      backbone - string containing backbone sequence
  *      mappings - maps sequences and qualities to the index in the backbone where they align
- * 
- * Author: Tin Kuculo
  */ 
 class Data {
     map<string, string> quality;

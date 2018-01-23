@@ -73,11 +73,9 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
     int index = current->index;
     int i=0;
     
-    // prepare map of all nodes to add, fill with new nodes
+    // prepare map of all nodes to add, fill with new nodes, stop when less than g bases left to add
     nodes[make_tuple(index, current->seq->data())] = current;
-    while(true){
-        if(get_edge(sequence.substr(i,-1), g).size() < g)
-            break;
+    while(get_edge(sequence.substr(i,-1), g).size() >= g){
         seq = get_edge(sequence.substr(i,-1), g);
 		q = quality.substr(i, seq.size());
         
@@ -91,31 +89,27 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
         index += g;
         i+=seq.size();
     }
-    int last_index = i;
-    printf("last index: %d\n", last_index);
+    
     // go through graph, if node to add found, replace new node with found node in map
     while(true){
         visited.clear();
         previous_nodes = current_nodes;
         current_nodes.clear();
         for(list<Node *>::iterator n = previous_nodes.begin(); n!= previous_nodes.end(); ++n){
+            
             // if current node is in map, replace new node with current node
-            if(nodes.count(make_tuple((*n)->index, (*n)->seq->data()))){
+            if(nodes.count(make_tuple((*n)->index, (*n)->seq->data())))
                 nodes[make_tuple((*n)->index, (*n)->seq->data())] = *n;
-            }
             
             // stop search if last index, also remember current node as next backbone node
-            if((*n)->index == last_index){
+            if((*n)->index == index){
                 next_backbone = (*n);
                 visited.clear();
                 break;
             }
-            //printf("checkpoint2\n");
-            if((*n)->edges->size() == 0) continue;
-            //printf("Iterating over edges...\n");
-            //printf("%s\n", (*n)->edges->front().seq->c_str());
+            
+            // add next nodes as current nodes (continue search)
             for(list<Edge>::iterator e = (*n)->edges->begin(); e!= (*n)->edges->end(); ++e){
-                //printf("edge: %s\n", (*e).seq->c_str());
                 if(!visited.count(e->next)){
                     current_nodes.push_back(e->next);
                     visited.insert(e->next);
@@ -124,38 +118,40 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
         }
         if(visited.empty()) break;
     }
-    //printf("Search complete\n");
 
     // convert node map to node array
     Node *node_list[nodes.size()];
-    i = 0;
+    int j=0;
     for(map<tuple<int, string>, Node *>::iterator it=nodes.begin(); it!=nodes.end(); ++it)
-        node_list[i++] = it->second;
+        node_list[j++] = it->second;
+        
+    // if last node is new (not found), add edge that connects to backbone
+    if(node_list[j-1]->edges->empty())
+        edges[index] = create_edge("", 0, next_backbone);
     
-    current = next_backbone;
-    if(last_index==sequence.size()){
-        edges[index] = create_edge("", 0, current);
-    }
+    /* commented: ignore tail of sequence
     else{
-        seq = sequence.substr(last_index, -1);
-		q = quality.substr(last_index, -1);
+        seq = sequence.substr(i, -1);
+		q = quality.substr(i, -1);
         new_edge = remove_char(seq, '_');
-        edges[index] = create_edge(new_edge, get_quality(q), current);
+        edges[index] = create_edge(new_edge, get_quality(q), next_backbone);
     }
-
+    */
+    
     Edge edge;
     bool found;
-    //For found and created nodes...
+    
+    // connect nodes and edges
     for(i=0; i<nodes.size()-1; i++){
-         node = node_list[i];
-         edge = edges[node->index];
-         found=false;
-         for (list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
+        node = node_list[i];
+        edge = edges[node->index];
+        found=false;
+        for (list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
             // if matching edge found, add quality to weight
             if (edge.seq->compare(it->seq->data()) == 0){
-                it->weight += edge.weight;
-                found=true;
-                break;
+               it->weight += edge.weight;
+               found=true;
+               break;
             }
         }
         // else, create new edge, connect to previous and next node
@@ -164,7 +160,9 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
             node->edges->push_back(edge);
         }
     }
-    node_list[nodes.size()-1]->edges->push_back(edges[index]);
+    // if there is an extra edge (if a new edge that leads to backbone was added)
+    if(edges.count(node_list[i]->index))
+        node_list[i]->edges->push_back(edges[node_list[i]->index]);
 
 }
 

@@ -29,6 +29,18 @@ float get_quality(string quality){
     return w;
 }
 
+// print progress
+void print_progress(int i, int j){
+    cout<<"[";
+    int pos = 30*((float)i)/j;
+    for(int j=0; j<30; ++j){
+        if(j<pos) cout<<"#";
+        else cout <<" ";
+    }
+    cout<<"]"<<(int)(((float)i/j)*100)<<"%\r";
+    cout.flush();
+}
+
 // gets q-length sequence for next edge
 string get_edge(string sequence, int q){
     int b = 0;
