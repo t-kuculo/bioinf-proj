@@ -27,7 +27,7 @@ public:
   * Node class: 
   *     seq = pointer to k-length string sequence
   *     index = position of node in backbone (int)
-  *     edges = list of edge pointers, points to next edges
+  *     edges = pointer to list of edges, points to next edges
   */
 class Node {
 public:
@@ -40,7 +40,7 @@ public:
     }
 };
 
-Node * create_node(string seq, int index, list<Edge> *edges){
+Node *create_node(string seq, int index, list<Edge> *edges){
     Node * node = (Node *)malloc(sizeof(Node));
     node->seq = new string(seq);
     node->index = index;

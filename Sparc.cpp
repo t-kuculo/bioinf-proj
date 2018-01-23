@@ -7,6 +7,7 @@
  *  author: Ana Brassard
  */
 #include "Data.h"
+#include <ctime>
 
 // global variables:
 int g, k; 
@@ -106,8 +107,6 @@ string get_best_sequence(){
     double max_weight = 0;
     if(paths.size()>1){
         for(list<tuple<string, float, Node *>>::iterator p = paths.begin(); p != paths.end(); ++p){
-            //printf("(%s %f [%d. %s])\n", get<0>(*p).substr(get<0>(*p).size()-k,k).c_str(), get<1>(*p),
-              //                          get<2>(*p)->index, get<2>(*p)->seq->c_str() );
             if(get<1>(*p) > max_weight){
                 max_weight = get<1>(*p);
                 max_path = get<0>(*p);
@@ -116,7 +115,7 @@ string get_best_sequence(){
         max_path = get<0>(paths.front());
         max_weight = get<1>(paths.front());
     }
-    printf("\nFound max path: %s ... (%f)\n", (max_path.substr(0,30)).c_str(), max_weight);
+   // printf("\nFound max path: %s ... (%f)\n", (max_path.substr(0,30)).c_str(), max_weight);
     return max_path;
 }
 
@@ -213,6 +212,7 @@ void add_sequences(map<int, list<tuple<string, string>>> mappings){
 */
 int main(int argc, char* argv[])
 {
+    clock_t begin = clock();
 	// get input parameters
     string backbone_path, reads_path, mappings_path, output_path;
 	for (int i = 1; i < argc; ++i)
@@ -263,10 +263,9 @@ int main(int argc, char* argv[])
     printf("adding sequences...\n");
     add_sequences(data.mappings);    
     data.mappings.clear();
-    printf("\ngraph constructed\n");
-    print_tree(graph, 27);
+    //print_tree(graph, 27);
     
-    printf("finding best path...\n");
+    printf("\nfinding best path...\n");
     string best_sequence = get_best_sequence();
     
     // write to file
@@ -276,8 +275,14 @@ int main(int argc, char* argv[])
     output << best_sequence << "\n\n";
     output.close();
     
-    printf("new sequence written to %s\n", output_path.c_str());
+    clock_t end = clock();        
+    printf("\nnew sequence written to %s\n", output_path.c_str());
+    printf("\nCPU time elapsed: %fs\n", double(end-begin)/CLOCKS_PER_SEC);
+    long long RAM = get_RAM();
+    printf("total RAM used: %lldB (~%fGB)\n", RAM, (double)(RAM/1024/1024)/1024);
+    
 	return 0;
 }
 
 
+// idea: when inserting index > i, delete nodes before i, only keep heaviest paths

@@ -9,8 +9,24 @@
 #include <cstdlib>
 #include <string>
 #include <algorithm>
+#include "sys/types.h"
+#include "sys/sysinfo.h"
 
 using namespace std;
+
+
+long long get_RAM(){
+    struct sysinfo memInfo;
+    sysinfo (&memInfo);
+    
+    long long totalVirtualMem = memInfo.totalram;
+    totalVirtualMem += memInfo.totalswap;
+    totalVirtualMem *= memInfo.mem_unit;
+    
+    long long totalPhysMem = memInfo.totalram;
+    totalPhysMem *= memInfo.mem_unit;
+    return totalPhysMem ;
+}
 
 // remove a character from string
 string remove_char(string s, char a){
@@ -55,6 +71,7 @@ string get_edge(string sequence, int q){
         }
         else if(sequence.at(i) == '_'){
             edge += sequence[i];
+            b++;
         }
         if(b == q) break;
     }

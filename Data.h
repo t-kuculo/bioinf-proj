@@ -56,6 +56,12 @@ class Data {
             //printf("read: %s %s.. %s..\n", name.c_str(),sequence[name].substr(0,20).c_str(),quality[name].substr(0,20).c_str());
         }
     }
+    /*
+    void get_reads(string path){
+        ifstream mfile(path);
+        while(mfile >> name >> sequence >> temp >> quality){
+            
+    }*/
 
     // Read mapping file, expects .paf format i
     map<int, list<tuple<string, string>>> get_mappings(string path){
@@ -105,7 +111,7 @@ class Data {
             // Add new sequence to dictionary
             if(!mappings.count(target_start))
                 mappings[target_start] = *new list<tuple<string, string>>();
-            mappings[target_start].push_front(make_tuple(new_read, new_quality));
+            mappings[target_start].push_back(make_tuple(new_read, new_quality));
         }
         return mappings;
     }
