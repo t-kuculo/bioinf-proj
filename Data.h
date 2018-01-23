@@ -1,4 +1,4 @@
-#include "Utils.h"
+#include "Node.h"
 
 
 // helper function that returns file lines
@@ -17,7 +17,6 @@ string clean(string str) {
 	return str;
 }
 
-
 /*
  * This class contains all relevant data read from files.
  * 
@@ -31,7 +30,7 @@ class Data {
     map<string, string> quality;
     map<string, string> sequence;
     
-    // read layout file, return sequence object
+    // read backbone file, return sequence string
     string get_backbone(string path) {
         list<string> lines = read_file(path);
         return clean(lines.back());
@@ -56,7 +55,6 @@ class Data {
         }
     }
 
-    // TODO: Do not use new_quality
     // Read mapping file, expects .paf format i
     map<int, list<tuple<string, string>>> get_mappings(string path){
         string read_id, cigar, temp, read, q, new_read, new_quality;
@@ -106,7 +104,6 @@ class Data {
             if(!mappings.count(target_start))
                 mappings[target_start] = *new list<tuple<string, string>>();
             mappings[target_start].push_front(make_tuple(new_read, new_quality));
-            //printf("new sequence: %s\nnew quality:  %s\n\n", new_read.substr(0,50).c_str(), new_quality.substr(0,50).c_str());
         }
         return mappings;
     }
@@ -116,10 +113,12 @@ public:
 	map<int, list<tuple<string, string>>> mappings;
  
     void prepare_data(string backbone_path, string reads_path, string mappings_path) {
-        
-        this->backbone = get_backbone(backbone_path);
+        backbone = get_backbone(backbone_path);
         get_reads(reads_path);
         mappings = get_mappings(mappings_path);
+        // free unused memory
+        quality.clear();
+        sequence.clear();
     }
 
 };

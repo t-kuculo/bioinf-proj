@@ -1,293 +1,41 @@
-#include "Utils.h"
-#include <string>
-#include <algorithm>
 #include "Data.h"
 
-// TODO: clean up!!
-
-Node * create_node(string *seq, int index, list<Edge> *edges){
-    Node * node = (Node *)malloc(sizeof(Node));
-    node->seq = seq;
-    node->index = index;
-    node->edges = edges;
-    return node;
-}
-Edge create_edge(string *seq, double weight, Node *next){
-    Edge *edge = (Edge *)malloc(sizeof(Edge));
-    edge->seq = seq;
-    edge->weight = weight;
-    if(next)
-        edge->next = next;
-    return *edge;
-}
-
-void test_graph(Node * current, int limit) {
-    int i=0;
-	while (i<=limit && current->edges->size()) {
-		printf("[%d. %s]---%s(%f)-->", current->index, current->seq->c_str(), 
-        current->edges->front().seq->c_str(), current->edges->front().weight);
-		current = current->next(current->edges->front().seq->c_str());
-        i++;
-	}
-    if(i>=limit)
-        printf(" .. (cont.)\n");
-}
-
-
-// used in debug. prints node name and edges + weights
-void print_node(Node * node){
-    printf("%d. %s -> [ ", node->index, node->seq->c_str());
-    for(list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it){
-        printf("%s-%f ",it->seq->c_str(), it->weight);
-    }
-    printf("]\n");
-}
-
-// gets q-length sequence for next edge
-string get_edge(string sequence, int q){
-    int b = 0;
-    string edge;
-    for(int i=0; i<sequence.size(); i++){
-        if(isupper(sequence[i])){
-            b++;
-            edge += sequence[i];
-        }
-        else if(islower(sequence[i])){
-            edge += toupper(sequence[i]);
-        }
-        else if(sequence.at(i) == '_'){
-            edge += sequence[i];
-        }
-        if(b == q) break;
-    }
-    return edge;
-}
-
-
-// TODO: move to utils
-string remove_char(string s, char a){
-    string new_s;
-    for(int i=0; i<s.size(); i++)
-        if (s[i]!= a) new_s += s[i];
-    return new_s;
-}
-
-// convert quality string to float
-float get_quality(string quality){
-    float w = 0;
-    for (int i = 0; i < quality.size(); i++)
-        w += int(quality[i])-int('!');
-    w /= quality.size();
-    return w;
-}
-
-/*
-void insert(Node *current, string sequence, string quality){
-    Node *root = current;
-    string seq,new_edge, q;
-    bool found=false;
-    int i=0;
-    
-    printf("Inserting: %s at index %d \n", sequence.substr(0,10).c_str(), current->index+g);
-    
-    while (i<sequence.size()-g) {
-		seq = get_edge(sequence.substr(i,-1), g);
-		q = quality.substr(i, seq.size());
-        int t = i;
-        i += seq.size();
-        new_edge = remove_char(seq, '_');
-        //printf("New edge: %s (from: %s..)\n", seq.c_str(), sequence.substr(t,10).c_str());
-		current->update(new_edge, q, current->index+g);
-        current = current->next(new_edge);
-	}
-    //print_tree(graph, root->index+3*g);
-    //printf("Inserted:  %s at index %d\n", sequence.substr(0,50).c_str(), root->index);
-}
-*/
-
-void insert(Node *current, string sequence, string quality, list<Node *> previous_nodes, list<Node *> current_nodes ){
-    Node *node, *next_backbone;
-    set<Node *> visited;// = *new set<Node *>();
-    map<tuple<int, string>, Node *> nodes;
-    map<int, Edge> edges;
-    string seq, q, new_edge, new_node_seq;
-    int index = current->index;
-    int i=0;
-    
-    //printf("Inserting...\n");
-    nodes[make_tuple(index, current->seq->data())] = current;
-    
-    // create map of all nodes to add (new nodes)
-    while(true){
-        if(get_edge(sequence.substr(i,-1), g).size() < g)
-            break;
-        seq = get_edge(sequence.substr(i,-1), g);
-        //printf("%d: seq = %s\n", i,seq.c_str());
-		q = quality.substr(i, seq.size());
-        
-        new_edge = remove_char(seq, '_');
-        edges[index] = create_edge(new string(new_edge), get_quality(q), nullptr);
-        
-        new_node_seq = seq.substr(seq.size()-k, k);
-        node = new_node(new_node_seq, index+g);
-        nodes[make_tuple(node->index, new_node_seq)] = node;
-       
-        index += g;
-        i+=seq.size();
-    }
-    int last_index = i;
-    //printf("Got nodes and edges, i=%d, index=%d, max=%d\n",i,index, (int)sequence.size());
-    while(true){
-        //printf("current index: %d\n", current_nodes.front()->index);
-        visited.clear();
-        previous_nodes = current_nodes;
-        current_nodes.clear();
-        for(list<Node *>::iterator n = previous_nodes.begin(); n!= previous_nodes.end(); ++n){
-            //printf("node: %d. %s\n", (*n)->index, (*n)->seq->c_str());
-            if(nodes.count(make_tuple((*n)->index, (*n)->seq->data()))){
-                //printf("Found: [%d. %s]\n", (*n)->index, (*n)->seq->data());
-                nodes[make_tuple((*n)->index, (*n)->seq->data())] = *n;
-            }
-                
-            //printf("checkpoint1\n");
-            if((*n)->index == index+g){
-                //printf("Got to end\n");
-                next_backbone = (*n);
-                visited.clear();
-                break;
-            }
-            //printf("checkpoint2\n");
-            if((*n)->edges->size() == 0) continue;
-            //printf("Iterating over edges...\n");
-            //printf("%s\n", (*n)->edges->front().seq->c_str());
-            for(list<Edge>::iterator e = (*n)->edges->begin(); e!= (*n)->edges->end(); ++e){
-                //printf("edge: %s\n", (*e).seq->c_str());
-                if(!visited.count(e->next)){
-                    current_nodes.push_back(e->next);
-                    visited.insert(e->next);
-                }
-            }
-        }
-        if(visited.empty()) break;
-    }
-    //printf("Search complete\n");
-    /*
-
-    
-    // DFS tree, if some node already exists, change pointer to existing node
-    // skip nodes with higher index than possible with current sequence
-    queue.push_front(graph);
-    while(!queue.empty()){
-        node = queue.front();
-        queue.pop_front();
-        if(nodes.count(make_tuple(node->index, node->seq->data()))){
-            nodes[make_tuple(node->index, node->seq->data())] = node;
-            //printf("Found node: %d. %s\n", node->index, node->seq->data());
-        }
-        for(list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
-            if(!visited.count(it->next) && it->next->index < current->index+sequence.size())
-                queue.push_front(it->next);
-        }
-        visited.insert(node);
-    }
-    */
-    // convert node map to node array
-    Node *node_list[nodes.size()];
-    i = 0;
-    for(map<tuple<int, string>, Node *>::iterator it=nodes.begin(); it!=nodes.end(); ++it)
-        node_list[i++] = it->second;
-    
-    //printf("Node list ready\n");
-    // last edge leads back to backbone
-
-    //printf("Last node: %d. %s\n", node_list[edges.size()]->index,  node_list[edges.size()]->seq->c_str());
-    //printf("Last edge: %s\n", edges[node_list[edges.size()-1]->index].seq->c_str());
-    //printf("%s\n", sequence.substr(sequence.size()-15, 15).c_str());
-    
-    current = next_backbone;
-   // printf("Current: [%d. %s]\n", current->index, current->seq->c_str());
-    
-    if(last_index==sequence.size()){
-        edges[index] = create_edge(new string(""), 0, current);
-    }
-    else{
-        seq = sequence.substr(last_index, -1);
-		q = quality.substr(last_index, -1);
-        new_edge = remove_char(seq, '_');
-        edges[index] = create_edge(new string(new_edge), get_quality(q), current);
-    }
-    //printf("Link to backbone: [%d. %s] -- %s --> [%d. %s]\n", node_list[nodes.size()-1]->index,  node_list[nodes.size()-1]->seq->c_str(),
-                                                    //edges[index].seq->c_str(), edges[index].next->index, edges[index].next->seq->c_str());
-    //printf("\nInserting %d elements at index %d from %s\n", (int)edges.size(), node_list[0]->index, sequence.substr(0,25).c_str());
-    //printf("Starting from node: [%d. %s]...\n", node_list[0]->index, node_list[0]->seq->c_str());
-    //printf("Nodes and edges to add ready\n");
-    
-    Edge edge;
-    bool found;
-    //For found and created nodes...
-    for(i=0; i<nodes.size()-1; i++){
-         node = node_list[i];
-         //printf("Current node: %d. %s (%d edges)\n", node->index, node->seq->c_str(), (int)node->edges->size());
-         edge = edges[node->index];
-         found=false;
-         for (list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
-            // if matching edge found, add quality to weight
-            if (edge.seq->compare(it->seq->data()) == 0){
-                //printf("Found edge: %s (%f)\n", edge.seq->c_str(), edge.weight);
-                it->weight += edge.weight;
-                found=true;
-                break;
-            }
-        }
-        // else, create new edge, connect to previous and next node
-        if(!found){
-            edge.next = node_list[i+1];
-            node->edges->push_back(edge);
-            //printf("Added edge %s to node %d, next = [%d. %s]\n", edge.seq->c_str(), node->index,
-                                                              //  node->edges->back().next->index,node->edges->back().next->seq->c_str());
-        }
-    }
-    node_list[nodes.size()-1]->edges->push_back(edges[index]);
-
-}
 
  /*
   * Initializes graph: convert backbone sequence to k-mer graph.
   * 
   * input:   backbone string
-  * returns: pointer to root node
   * 
   * author: Ana Brassard
  */
-Node *init_graph(string backbone) {
-	string seq;
-    Node *root, *first, *current;
-    Edge start;
+void init_graph(string backbone) {
+    Node *first;
+    Edge first_edge;
     
     // graph starts with empty node with edge that points to first k of backbone:
     //  []--AA-->[AA]   i.e. [root]--start-->[first]
-    first = create_node(new string(backbone.substr(0, k)), 0, new list<Edge>());
-    start = create_edge(new string(backbone.substr(0, k)), get_quality(string(k, ')')), first);
-    list<Edge> *temp = new list<Edge>();
-    temp->push_front(start);
-    root = create_node(new string("*"), -g, temp);
-    graph = root;
+    graph = create_node("*", -g,  new list<Edge>());
+    first = create_node(backbone.substr(0, k), 0, new list<Edge>());
+    first_edge = create_edge(backbone.substr(0, k), get_quality(string(k, ')')), first);
+    graph->edges->push_front(first_edge);
     
-    Node * node;
+    // add rest of backbone
+    Node *node, *current;
     Edge edge;
-    int i=k;
-    int index = g;
-    double q;
+    int i=k, index=g;
+    string seq;
     current = first;
     while(i<backbone.size()){
+        // get next edge
         seq = backbone.substr(i,g);
-		q = get_quality(string(g, ')'));
-        edge = create_edge(new string(seq), q, nullptr);
+        edge = create_edge(seq, get_quality(string(g, ')')), nullptr);
         
+        // get next node from edge
         if(seq.size()>=k)
             seq = seq.substr(g-k, k);
-        node = new_node(seq, index);
+        node = create_node(seq, index, new list<Edge>());
         
+        // connect: current --> edge --> node
         edge.next = node;
         current->edges->push_front(edge);
         
@@ -295,11 +43,10 @@ Node *init_graph(string backbone) {
         i+=g;
         current = node;
     } 
-    node = new_node("*", index);
-    edge = create_edge(new string(""),0,node);
+    // add empty node to end of backbone
+    node = create_node("*", index, new list<Edge>());
+    edge = create_edge("",0,node);
     current->edges->push_back(edge);
-    
-    return root;
 }
 
 string get_sequence(Node *root){
@@ -370,8 +117,6 @@ string get_sequence(Node *root){
     return max_path;
 }
 
-
-// iterate over data, update graph, find best path, write to file
 /*
  * Main program of Sparc algorithm. 
  * Creates backbone k-mer graph, updates graph for each matched read, searches and finds heaviest path.
@@ -387,22 +132,12 @@ string get_sequence(Node *root){
  * 
  * Author: Ana Brassard
 */
-//global variables
 int g, k; 
 Node *graph;
 int main(int argc, char* argv[])
 {
-	Data data;
-	Node *current, *previous, *new_current;
-    Edge edge;
-	string backbone_path, reads_path, mappings_path, output_path;
-    string sequence, quality, final_sequence, new_edge;
-    list<tuple<string, string>> mappings;
-    list<Node *> next_nodes, current_nodes, previous_nodes;
-    set<Node *> visited;
-    int prev, index, maxweight = 0;;
-
 	// get input parameters
+    string backbone_path, reads_path, mappings_path, output_path;
 	for (int i = 1; i < argc; ++i)
 	{
         // TODO: add help option
@@ -439,22 +174,28 @@ int main(int argc, char* argv[])
 		}
 	}
 	printf("k=%d, g=%d\n",k,g);
+    
+    // get data
+    Data data;
 	data.prepare_data(backbone_path, reads_path, mappings_path);
 	printf("data ready\n");
     
-    // initialize graph: 
-	graph = init_graph(data.backbone);
+    // initialize graph
+	init_graph(data.backbone);
 	printf("graph initialized\n");
-    //print_tree(graph, 30);
-    
-    printf("adding sequences...\n");
-    int strt,cnt = 0;
+
+    // add matched reads to graph    
+    list<Node *> current_nodes, previous_nodes;
+    set<Node *> visited;
+        
     previous_nodes.push_back(graph);
     current_nodes.push_back(graph->edges->front().next);
-    for(int i=0; i<data.backbone.size()-g; i++){
-        // advance forward: get set of nodes at next index
+    printf("adding sequences...\n");
+    
+    // iterate from beginning of backbone to last index of mappings
+    for(int i=0; i<=data.mappings.rbegin()->first; i++){
+        // if i passed current node, advance forward: get set of nodes at next index
         if(i > current_nodes.front()->index){
-            //printf("Advancing: [%d. %s] ->", previous_nodes.front()->index,  previous_nodes.front()->seq->c_str()); 
             visited.clear();
             previous_nodes = current_nodes;
             current_nodes.clear();
@@ -465,90 +206,69 @@ int main(int argc, char* argv[])
                         current_nodes.push_back(e->next);
                         visited.insert(e->next);
             }}}
-            //printf(" [%d. %s]\n", current_nodes.front()->index, current_nodes.front()->seq->c_str());
         }
         
+        Node *current, *previous, *new_current;
+
+        Edge edge;
+        string sequence, quality, new_edge;
+        int prev, index, maxweight = 0;
+    
         // if no mappings at current index, continue
         if(!data.mappings.count(i)) continue;
         
-        mappings = data.mappings[i];
-        for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
-            //printf("Currently %d nodes at index %d\n", (int)current_nodes.size(), current_nodes.front()->index);
+        // else: add mapped sequences to graph
+        for(list<tuple<string, string>>::iterator it = data.mappings[i].begin(); it != data.mappings[i].end(); ++it){
             sequence = get<0>(*it);
             quality = get<1>(*it);
-            //printf("i = %d, current = [%d. %s]\n", i, current_nodes.front()->index, current_nodes.front()->seq->c_str());
             
-            //trim sequence start to align with node if not adding to root
+            //trim sequence start to align with current node
             if(i%g != 0){
                 sequence = sequence.substr(i%g, -1);
                 quality = quality.substr(i%g, -1);
             }
             
-            //printf("mapping:\n    %s\n    %s\n", sequence.substr(0,25).c_str(), data.backbone.substr(i,25).c_str());
-            //print_tree(graph, 20);
-            
-            // look for matching root node at current index
+            // look for matching node in current nodes
             bool found = false;
-            new_edge = get_edge(sequence, k);
+            new_edge = get_edge(sequence, g);
             for(list<Node *>::iterator n = current_nodes.begin(); n != current_nodes.end(); ++n){
-                //printf("Searching: %s\n", (*n)->seq->c_str());
-                if((*n)->seq->compare(new_edge)==0){
+                if((*n)->seq->compare(new_edge.substr(new_edge.size()-k, k))==0){
                     found = true;
                     current = *n;
-                   // printf("\nRoot %s found at index %d\n", (*n)->seq->c_str(), (*n)->index);
                     break;
                 }
             }
             
-            // if sequence root matches, insert rest of sequence
-            // if sequence root does not match, create new edge from previous backbone node, then insert rest
+            // if sequence root does not match, create new edge from previous backbone node and add new node
             if(!found){
-                new_edge = get_edge(sequence, k);
-                current = new_node(new_edge, current_nodes.front()->index);
-                edge = create_edge(new string(remove_char(new_edge, '_')), get_quality(quality.substr(0, new_edge.size())), current);
+                current = create_node(new_edge.substr(new_edge.size()-k, k).data(), current_nodes.front()->index, new list<Edge>());
+                edge = create_edge(remove_char(new_edge, '_'), get_quality(quality.substr(0, new_edge.size())), current);
                 previous_nodes.front()->edges->push_back(edge);
                 current_nodes.push_back(current);
-               // printf("\nRoot of %s not found at %d, created new node: %s \n", sequence.substr(0, 15).c_str(), current->index, current->seq->c_str());
             }
+            
+            // insert rest of sequence
             sequence = sequence.substr(new_edge.size(), -1);
             quality = quality.substr(new_edge.size(), -1);
             insert(current, sequence, quality, previous_nodes, current_nodes);
         }
-        cnt++;
         cout<<"[";
-        int pos = 30*((float)(cnt))/data.mappings.size();
+        int pos = 30*((float)(i))/data.mappings.rbegin()->first;
         for(int j=0; j<30; ++j){
             if(j<pos) cout<<"#";
             else cout <<" ";
         }
-        cout<<"]"<<(int)(((float)cnt)/(data.mappings.size())*100)<<"%\r";
+        cout<<"]"<<(int)(((float)i)/(data.mappings.rbegin()->first)*100)<<"%\r";
         cout.flush();
          
     }
     cout<<endl;
     
-    /*
-    // go through backbone indices, add new sequence to graph if matched 
-    current = graph;
-    do{
-        if(data.mappings.count(current->index)){
-            //printf("At index: %d, %d mappings\n",current->index, data.mappings[current->index].size());
-            mappings = data.mappings[current->index];
-            for(list<tuple<string, string>>::iterator it = mappings.begin(); it != mappings.end(); ++it){
-                sequence = get<0>(*it);
-                quality = get<1>(*it);
-                insert(get_backbone_node(prev), sequence, quality);
-            }
-        }
-        current = current->next(current->edges->front().seq->c_str()); //edge to next backbone node is always at head of edge list
-        //printf("Next node: [%d. %s]\n", current->index, current->seq->substr(0,25).c_str());
-    }while(current->edges->size());
-    */
     printf("graph constructed\n");
     print_tree(graph, 27);
         
     printf("finding best path...\n");
-    final_sequence = get_sequence(graph);
+    string final_sequence = get_sequence(graph);
     
     ofstream output;
     output.open(output_path);
