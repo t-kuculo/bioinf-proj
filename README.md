@@ -14,4 +14,4 @@ To compile:
 To run:
 `Sparc -g x -k y -b path_to_backbone.fasta -r path_to_reads.fastq  -m path_to_mappings.paf `
 
-This is a project created as a part of our [Bioinformatics course](http://www.fer.unizg.hr/predmet/bio) curriculum.
+This is a project created as a part of our [Bioinformatics course](http://www.fer.unizg.hr/predmet/bio).
