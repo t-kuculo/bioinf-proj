@@ -40,17 +40,17 @@ public:
     }
 };
 
-Node *create_node(string seq, int index, list<Edge> *edges){
+Node *CreateNode(string seq, int index){
     Node * node = (Node *)malloc(sizeof(Node));
-    node->seq = new string(seq);
+    node->seq = new string(seq.substr(seq.size()-k, k)); //gets last k bases
     node->index = index;
-    node->edges = edges;
+    node->edges = new list<Edge>();
     return node;
 }
 
-Edge create_edge(string seq, double weight, Node *next){
+Edge CreateEdge(string seq, double weight, Node *next){
     Edge *edge = (Edge *)malloc(sizeof(Edge));
-    edge->seq = new string(seq);
+    edge->seq = new string(removeChar(seq, '_')); // remove "_" from edge
     edge->weight = weight;
     if(next)
         edge->next = next;
@@ -64,38 +64,39 @@ Edge create_edge(string seq, double weight, Node *next){
  * 
  * Authors: Ana Brassard & Tin Kuculo
  */
-void insert(Node *current, string sequence, string quality, list<Node *> previous_nodes, list<Node *> current_nodes ){
-    Node *node, *next_backbone;
-    set<Node *> visited;// = *new set<Node *>();
-    map<tuple<int, string>, Node *> nodes;
-    map<int, Edge> edges;
-    string seq, q, new_edge, new_node_seq;
-    int index = current->index;
+void Insert(Node *current_node, string sequence, string quality, list<Node *> previous_node_list, list<Node *> current_node_list ){
+    
+    int index = current_node->index;
     int i=0;
     
-    // prepare map of all nodes to add, fill with new nodes, stop when less than g bases left to add
-    nodes[make_tuple(index, current->seq->data())] = current;
-    while(get_edge(sequence.substr(i,-1), g).size() >= g){
-        seq = get_edge(sequence.substr(i,-1), g);
-		q = quality.substr(i, seq.size());
-        
-        new_edge = remove_char(seq, '_');
-        edges[index] = create_edge(new_edge, get_quality(q), nullptr);
-        
-        new_node_seq = seq.substr(seq.size()-k, k);
-        node = create_node(new_node_seq, index+g, new list<Edge>());
+    map<tuple<int, string>, Node *> nodes;
+    nodes[make_tuple(index, current_node->seq->data())] = current_node;
+    
+    Node *node;
+    map<int, Edge> edges;
+    string seq = getEdge(sequence.substr(i,-1), g);
+    string q = quality.substr(i, seq.size());
+    
+    // create map of nodes to add, stop when less than g bases left to add
+    while(seq.size() >= g){
+        edges[index] = CreateEdge(seq, getQuality(q), nullptr);
+        node = CreateNode(seq, index+g);
         nodes[make_tuple(node->index, new_node_seq)] = node;
        
         index += g;
         i+=seq.size();
+        seq = getEdge(sequence.substr(i,-1), g);
+        q = quality.substr(i, seq.size());
     }
     
     // go through graph, if node to add found, replace new node with found node in map
+    set<Node *> visited;
+    Node *next_backbone;
     while(true){
         visited.clear();
-        previous_nodes = current_nodes;
-        current_nodes.clear();
-        for(list<Node *>::iterator n = previous_nodes.begin(); n!= previous_nodes.end(); ++n){
+        previous_node_list = current_node_list;
+        current_node_list.clear();
+        for(list<Node *>::iterator n = previous_node_list.begin(); n!= previous_node_list.end(); ++n){
             
             // if current node is in map, replace new node with current node
             if(nodes.count(make_tuple((*n)->index, (*n)->seq->data())))
@@ -111,7 +112,7 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
             // add next nodes as current nodes (continue search)
             for(list<Edge>::iterator e = (*n)->edges->begin(); e!= (*n)->edges->end(); ++e){
                 if(!visited.count(e->next)){
-                    current_nodes.push_back(e->next);
+                    current_node_list.push_back(e->next);
                     visited.insert(e->next);
                 }
             }
@@ -127,16 +128,7 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
         
     // if last node is new (not found), add edge that connects to backbone
     if(node_list[j-1]->edges->empty())
-        edges[index] = create_edge("", 0, next_backbone);
-    
-    /* commented: ignore tail of sequence
-    else{
-        seq = sequence.substr(i, -1);
-		q = quality.substr(i, -1);
-        new_edge = remove_char(seq, '_');
-        edges[index] = create_edge(new_edge, get_quality(q), next_backbone);
-    }
-    */
+        edges[index] = CreateEdge("", 0, next_backbone);
     
     Edge edge;
     bool found;
@@ -167,7 +159,7 @@ void insert(Node *current, string sequence, string quality, list<Node *> previou
 }
 
 // Prints tree from given root to max index (BFS)
-void print_tree(Node *root, int maxindex){
+void printTree(Node *root, int maxindex){
     Node *node;
     list<Node *> queue = *new list<Node *>();
     set<Node *> visited = *new set<Node *>();

@@ -15,7 +15,7 @@
 using namespace std;
 
 
-long long get_RAM(){
+long long getRAM(){
     struct sysinfo memInfo;
     sysinfo (&memInfo);
     
@@ -29,28 +29,28 @@ long long get_RAM(){
 }
 
 // remove a character from string
-string remove_char(string s, char a){
-    string new_s;
+string removeChar(string s, char a){
+    string new_string;
     for(int i=0; i<s.size(); i++)
-        if (s[i]!= a) new_s += s[i];
-    return new_s;
+        if (s[i]!= a) new_string += s[i];
+    return new_string;
 }
 
 // convert quality string to float
-float get_quality(string quality){
-    float w = 0;
+float getQuality(string quality){
+    double weight = 0;
     for (int i = 0; i < quality.size(); i++)
-        w += int(quality[i])-int('!');
-    w /= quality.size();
-    return w;
+        weight += int(quality[i])-int('!');
+    weight /= quality.size();
+    return weight;
 }
 
 // print progress
-void print_progress(int i, int j){
+void printProgress(int i, int j){
     cout<<"[";
-    int pos = 30*((float)i)/j;
+    int position = 30*((float)i)/j;
     for(int j=0; j<30; ++j){
-        if(j<pos) cout<<"#";
+        if(j<position) cout<<"#";
         else cout <<" ";
     }
     cout<<"]"<<(int)(((float)i/j)*100)<<"%\r";
@@ -58,22 +58,17 @@ void print_progress(int i, int j){
 }
 
 // gets q-length sequence for next edge
-string get_edge(string sequence, int q){
-    int b = 0;
+string getEdge(string sequence, int q){
+    int edge_counter = 0;
     string edge;
     for(int i=0; i<sequence.size(); i++){
-        if(isupper(sequence[i])){
-            b++;
-            edge += sequence[i];
-        }
-        else if(islower(sequence[i])){
+        if(islower(sequence[i]))
             edge += toupper(sequence[i]);
-        }
-        else if(sequence.at(i) == '_'){
+        else{
             edge += sequence[i];
-            b++;
+            edge_counter++;
         }
-        if(b == q) break;
+        if(edge_counter == q) break;
     }
     return edge;
 }

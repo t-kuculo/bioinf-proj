@@ -21,9 +21,9 @@ void init_graph(string backbone) {
     
     // graph starts with empty node with edge that points to first k of backbone:
     //  []--AA-->[AA]   i.e. [graph]--first_edge-->[first]
-    graph = create_node("*", -g,  new list<Edge>());
-    first = create_node(backbone.substr(0, k), 0, new list<Edge>());
-    first_edge = create_edge(backbone.substr(0, k), get_quality(string(k, ')')), first);
+    graph = CreateNode("*", -g);
+    first = CreateNode(backbone.substr(0, k), 0);
+    first_edge = CreateEdge(backbone.substr(0, k), getQuality(string(k, ')')), first);
     graph->edges->push_front(first_edge);
     
     // add rest of backbone
@@ -35,12 +35,12 @@ void init_graph(string backbone) {
     while(i<backbone.size()){
         // get next edge
         seq = backbone.substr(i,g);
-        edge = create_edge(seq, get_quality(string(g, ')')), nullptr);
+        edge = CreateEdge(seq, getQuality(string(g, ')')), nullptr);
         
         // get next node from edge
         if(seq.size()>=k)
             seq = seq.substr(g-k, k);
-        node = create_node(seq, index, new list<Edge>());
+        node = CreateNode(seq, index);
         
         // connect: current --> edge --> node
         edge.next = node;
@@ -51,8 +51,8 @@ void init_graph(string backbone) {
         current = node;
     } 
     // add empty node to end of backbone
-    node = create_node("*", index, new list<Edge>());
-    edge = create_edge("",0,node);
+    node = CreateNode("*", index);
+    edge = CreateEdge("",0,node);
     current->edges->push_back(edge);
 }
 
@@ -97,7 +97,7 @@ string get_best_sequence(){
         }
         if(new_paths.empty())
             break;
-        print_progress(get<2>(new_paths.front())->index, last);
+        printProgress(get<2>(new_paths.front())->index, last);
         paths = new_paths;
     }
     
@@ -143,7 +143,6 @@ void add_sequences(map<int, list<tuple<string, string>>> mappings){
                         visited.insert(e->next);
             }}}
         }
-        
         Node *current, *previous, *new_current;
 
         Edge edge;
@@ -167,9 +166,9 @@ void add_sequences(map<int, list<tuple<string, string>>> mappings){
             // look for matching node in current nodes
             bool found = false;
             if(i==0)
-                new_edge = get_edge(sequence, k); // special case: adding to root
+                new_edge = getEdge(sequence, k); // special case: adding to root
             else
-                new_edge = get_edge(sequence, g);
+                new_edge = getEdge(sequence, g);
             for(list<Node *>::iterator n = current_nodes.begin(); n != current_nodes.end(); ++n){
                 if((*n)->seq->compare(new_edge.substr(new_edge.size()-k, k))==0){
                     found = true;
@@ -180,8 +179,8 @@ void add_sequences(map<int, list<tuple<string, string>>> mappings){
             
             // if sequence root does not match, create new edge from previous backbone node and add new node
             if(!found){
-                current = create_node(new_edge.substr(new_edge.size()-k, k).data(), current_nodes.front()->index, new list<Edge>());
-                edge = create_edge(remove_char(new_edge, '_'), get_quality(quality.substr(0, new_edge.size())), current);
+                current = CreateNode(new_edge.substr(new_edge.size()-k, k).data(), current_nodes.front()->index);
+                edge = CreateEdge(removeChar(new_edge, '_'), getQuality(quality.substr(0, new_edge.size())), current);
                 previous_nodes.front()->edges->push_back(edge);
                 current_nodes.push_back(current);
             }
@@ -189,9 +188,9 @@ void add_sequences(map<int, list<tuple<string, string>>> mappings){
             // insert rest of sequence
             sequence = sequence.substr(new_edge.size(), -1);
             quality = quality.substr(new_edge.size(), -1);
-            insert(current, sequence, quality, previous_nodes, current_nodes); //see: Node.h
+            Insert(current, sequence, quality, previous_nodes, current_nodes); //see: Node.h
         }
-        print_progress(i, mappings.rbegin()->first);
+        printProgress(i, mappings.rbegin()->first);
          
     }
 }
@@ -278,7 +277,7 @@ int main(int argc, char* argv[])
     clock_t end = clock();        
     printf("\nnew sequence written to %s\n", output_path.c_str());
     printf("\nCPU time elapsed: %fs\n", double(end-begin)/CLOCKS_PER_SEC);
-    long long RAM = get_RAM();
+    long long RAM = getRAM();
     printf("total RAM used: %lldB (~%fGB)\n", RAM, (double)(RAM/1024/1024)/1024);
     
 	return 0;
