@@ -57,7 +57,7 @@ void printProgress(int i, int j){
     cout.flush();
 }
 
-// gets q-length sequence for next edge
+// gets the appropriate length(q+any empty spaces and inserted bases) sequence for next edge
 string getEdge(string sequence, int q){
     int edge_counter = 0;
     string edge;
