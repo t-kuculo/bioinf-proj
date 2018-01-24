@@ -1,4 +1,5 @@
-# bioinf_sparc
+# bioinf_sparc 
+
 An implementation of the [Sparc](https://peerj.com/articles/2016.pdf) algorithm.
 Given a backbone, reads and a mapping file describing where the reads align with the backbone, creates a sparse k-mer graph with weighted edges. Consensus is found by traversing the graph and finding the heaviest path from the beginning to the end of the backbone.
 
@@ -13,3 +14,4 @@ To compile:
 To run:
 `Sparc -g x -k y -b path_to_backbone.fasta -r path_to_reads.fastq  -m path_to_mappings.paf `
 
+This is a project created as a part of our [Bioinformatics course](http://www.fer.unizg.hr/predmet/bio) curriculum.
