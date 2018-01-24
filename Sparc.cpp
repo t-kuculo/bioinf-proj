@@ -255,7 +255,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	if(g<k){
-		printf("Invalid g,k!\n);
+		printf("Invalid g,k!\n");
 		return 0;
 	}
     Data data;
