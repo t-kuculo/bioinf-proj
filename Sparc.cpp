@@ -254,7 +254,10 @@ int main(int argc, char* argv[])
 			continue;
 		}
 	}
-
+	if(g<k){
+		printf("Invalid g,k!\n);
+		return 0;
+	}
     Data data;
 	data.PrepareData(backbone_path, reads_path, mappings_path);
 	printf("\ndata ready\n");
