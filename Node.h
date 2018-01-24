@@ -81,7 +81,7 @@ void Insert(Node *current_node, string sequence, string quality, list<Node *> pr
     while(seq.size() >= g){
         edges[index] = CreateEdge(seq, getQuality(q), nullptr);
         node = CreateNode(seq, index+g);
-        nodes[make_tuple(node->index, new_node_seq)] = node;
+        nodes[make_tuple(node->index, node->seq->data())] = node;
        
         index += g;
         i+=seq.size();
