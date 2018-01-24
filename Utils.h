@@ -53,7 +53,7 @@ void printProgress(int i, int j){
         if(j<position) cout<<"#";
         else cout <<" ";
     }
-    cout<<"]"<<(int)(((float)i/j)*100)<<"%\r";
+    cout<<"]"<<(int)(((float)i/j)*100)<<"%   ("<<i<<"/"<<j<<")\r";
     cout.flush();
 }
 

@@ -6,7 +6,7 @@
 #include "Node.h"
 
 // helper function that returns file lines
-list<string> read_file(string path) {
+list<string> ReadFile(string path) {
 	list<string> lines;
 	ifstream infile(path);
 	for (string line; getline(infile, line); )
@@ -33,16 +33,16 @@ class Data {
     map<string, string> sequence;
     
     // read backbone file, return sequence string
-    string get_backbone(string path) {
-        list<string> lines = read_file(path);
+    string GetBackbone(string path) {
+        list<string> lines = ReadFile(path);
         return clean(lines.back());
     }
 
     // get list of reads
-    void get_reads(string path) {
+    void GetReads(string path) {
         map<string, tuple<string, string>> reads;
         string name;
-        list<string> lines = read_file(path);
+        list<string> lines = ReadFile(path);
         while (!lines.empty())
         {
             name = clean(lines.front());
@@ -64,7 +64,7 @@ class Data {
     }*/
 
     // Read mapping file, expects .paf format i
-    map<int, list<tuple<string, string>>> get_mappings(string path){
+    map<int, list<tuple<string, string>>> GetMappings(string path){
         string read_id, cigar, temp, read, q, new_read, new_quality;
         int read_start, read_end, target_start, j, k;
         map<int, list<tuple<string, string>>> mappings;
@@ -120,10 +120,11 @@ public:
 	string backbone;
 	map<int, list<tuple<string, string>>> mappings;
  
-    void prepare_data(string backbone_path, string reads_path, string mappings_path) {
-        backbone = get_backbone(backbone_path);
-        get_reads(reads_path);
-        mappings = get_mappings(mappings_path);
+    void PrepareData(string backbone_path, string reads_path, string mappings_path) {
+        backbone = GetBackbone(backbone_path);
+        //get_reads(reads_path);
+        GetReads(reads_path);
+        mappings = GetMappings(mappings_path);
         // free unused memory
         quality.clear();
         sequence.clear();

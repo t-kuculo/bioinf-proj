@@ -10,12 +10,12 @@
 #include <ctime>
 
 // global variables:
-int g, k; 
+int g, k, cutoff; 
 Node *graph;
 
 
 // Initializes graph: convert backbone sequence to k-mer graph.
-void init_graph(string backbone) {
+void InitGraph(string backbone) {
     Node *first;
     Edge first_edge;
     
@@ -33,13 +33,9 @@ void init_graph(string backbone) {
     string seq;
     current = first;
     while(i<backbone.size()){
-        // get next edge
+        // get next edge and node
         seq = backbone.substr(i,g);
         edge = CreateEdge(seq, getQuality(string(g, ')')), nullptr);
-        
-        // get next node from edge
-        if(seq.size()>=k)
-            seq = seq.substr(g-k, k);
         node = CreateNode(seq, index);
         
         // connect: current --> edge --> node
@@ -47,18 +43,18 @@ void init_graph(string backbone) {
         current->edges->push_front(edge);
         
         index += g;
-        i+=g;
+        i += g;
         current = node;
     } 
     // add empty node to end of backbone
     node = CreateNode("*", index);
-    edge = CreateEdge("",0,node);
+    edge = CreateEdge("", 0, node);
     current->edges->push_back(edge);
 }
 
 
 // Traverses graph and finds heaviest sequence (string).
-string get_best_sequence(){
+string GetBestSequence(){
     
     // get index of last node
     Node * current = graph;
@@ -121,7 +117,7 @@ string get_best_sequence(){
 
 
 // iterate from beginning of backbone to last index of mappings
-void add_sequences(map<int, list<tuple<string, string>>> mappings){
+void AddSequences(map<int, list<tuple<string, string>>> mappings){
     // add matched reads to graph    
     list<Node *> current_nodes, previous_nodes;
     set<Node *> visited;
@@ -153,7 +149,9 @@ void add_sequences(map<int, list<tuple<string, string>>> mappings){
         if(!mappings.count(i)) continue;
         
         // else: add mapped sequences to graph
+        int c = 0;
         for(list<tuple<string, string>>::iterator it = mappings[i].begin(); it != mappings[i].end(); ++it){
+            if(cutoff>0 && ++c >= 5+cutoff) break; //max 
             sequence = get<0>(*it);
             quality = get<1>(*it);
             
@@ -188,13 +186,13 @@ void add_sequences(map<int, list<tuple<string, string>>> mappings){
             // insert rest of sequence
             sequence = sequence.substr(new_edge.size(), -1);
             quality = quality.substr(new_edge.size(), -1);
-            Insert(current, sequence, quality, previous_nodes, current_nodes); //see: Node.h
+            Insert(current, sequence, quality, current_nodes); //see: Node.h
         }
         printProgress(i, mappings.rbegin()->first);
          
     }
 }
-
+ 
 
 /*
  * Main program of Sparc algorithm. 
@@ -208,10 +206,12 @@ void add_sequences(map<int, list<tuple<string, string>>> mappings){
  *   -r : reads file (.fastq)
  *   -m : mapping file (.paf)
  *   -o : output file
+ *   -c : how many reads can be added per node (optional)
 */
 int main(int argc, char* argv[])
 {
     clock_t begin = clock();
+    cutoff = -1; // if cutoff is not given, it is left as -1 and ignored by AddSequence
 	// get input parameters
     string backbone_path, reads_path, mappings_path, output_path;
 	for (int i = 1; i < argc; ++i)
@@ -248,30 +248,34 @@ int main(int argc, char* argv[])
 			output_path = argv[i];
 			continue;
 		}
+        if (strcmp(argv[i], "-c")==0) {
+			i++;
+			output_path = argv[i];
+			continue;
+		}
 	}
-	printf("k=%d, g=%d\n",k,g);
-    
+
     Data data;
-	data.prepare_data(backbone_path, reads_path, mappings_path);
-	printf("data ready\n");
+	data.PrepareData(backbone_path, reads_path, mappings_path);
+	printf("\ndata ready\n");
     
-	init_graph(data.backbone);
+	InitGraph(data.backbone);
     data.backbone = "";
-	printf("graph initialized\n");
+	printf("graph initialized with k=%d, g=%d\n",k,g);
     
     printf("adding sequences...\n");
-    add_sequences(data.mappings);    
+    AddSequences(data.mappings);    
     data.mappings.clear();
     //print_tree(graph, 27);
     
     printf("\nfinding best path...\n");
-    string best_sequence = get_best_sequence();
+    string best_sequence = GetBestSequence();
     
     // write to file
     ofstream output;
     output.open(output_path);
     output << ">" << "consensus_output\n";
-    output << best_sequence << "\n\n";
+    output << best_sequence << "\n";
     output.close();
     
     clock_t end = clock();        

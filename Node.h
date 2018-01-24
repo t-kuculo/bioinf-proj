@@ -42,7 +42,9 @@ public:
 
 Node *CreateNode(string seq, int index){
     Node * node = (Node *)malloc(sizeof(Node));
-    node->seq = new string(seq.substr(seq.size()-k, k)); //gets last k bases
+    if(seq.size()>=k)
+        seq = seq.substr(seq.size()-k);
+    node->seq = new string(seq); //gets last k bases
     node->index = index;
     node->edges = new list<Edge>();
     return node;
@@ -64,20 +66,20 @@ Edge CreateEdge(string seq, double weight, Node *next){
  * 
  * Authors: Ana Brassard & Tin Kuculo
  */
-void Insert(Node *current_node, string sequence, string quality, list<Node *> previous_node_list, list<Node *> current_node_list ){
+void Insert(Node *current_node, string sequence, string quality, list<Node *> current_node_list ){
     
     int index = current_node->index;
-    int i=0;
     
     map<tuple<int, string>, Node *> nodes;
     nodes[make_tuple(index, current_node->seq->data())] = current_node;
     
     Node *node;
     map<int, Edge> edges;
-    string seq = getEdge(sequence.substr(i,-1), g);
-    string q = quality.substr(i, seq.size());
+    string seq = getEdge(sequence, g);
+    string q = quality.substr(0, seq.size());
     
     // create map of nodes to add, stop when less than g bases left to add
+    int i=0;
     while(seq.size() >= g){
         edges[index] = CreateEdge(seq, getQuality(q), nullptr);
         node = CreateNode(seq, index+g);
@@ -92,8 +94,8 @@ void Insert(Node *current_node, string sequence, string quality, list<Node *> pr
     // go through graph, if node to add found, replace new node with found node in map
     set<Node *> visited;
     Node *next_backbone;
+    list<Node *> previous_node_list; 
     while(true){
-        visited.clear();
         previous_node_list = current_node_list;
         current_node_list.clear();
         for(list<Node *>::iterator n = previous_node_list.begin(); n!= previous_node_list.end(); ++n){
@@ -111,7 +113,7 @@ void Insert(Node *current_node, string sequence, string quality, list<Node *> pr
             
             // add next nodes as current nodes (continue search)
             for(list<Edge>::iterator e = (*n)->edges->begin(); e!= (*n)->edges->end(); ++e){
-                if(!visited.count(e->next)){
+                if(visited.count(e->next) == 0){
                     current_node_list.push_back(e->next);
                     visited.insert(e->next);
                 }
@@ -171,14 +173,14 @@ void printTree(Node *root, int maxindex){
         queue.pop_front();
         if(node->index>maxindex)
             continue;
+            
         printf("\n%s[%d. %s]\n",string(node->index+g,' ').c_str(), node->index, node->seq->c_str());
-        //printf("\n[%d. %s]\n", node->index, node->seq->c_str());
         for(list<Edge>::iterator it = node->edges->begin(); it != node->edges->end(); ++it) {
+            
             if(!visited.count(node))
                 printf("%s  --%s(%f)-->[%d. %s]\n",string(node->index+g,' ').c_str(),it->seq->c_str(), 
                                             it->weight, it->next->index, it->next->seq->c_str());
-                // printf(" --%s(%f)-->[%d. %s]\n",it->seq->c_str(), it->weight, it->next->index, it->next->seq->c_str());
-                
+
             if(!visited.count(it->next) && !added.count(it->next)){
                 queue.push_back(it->next);
                 added.insert(it->next);
